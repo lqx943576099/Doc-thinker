@@ -20,11 +20,11 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 # 启动 UI（使用本项目内的 app，保证模板从项目内加载）
-from raganything.ui.app import app, config
+from docthinker.ui.app import app, config
 
 # 注册知识图谱可视化蓝图（如果尚未注册）
 try:
-    from raganything.ui.routers.kg_visualization import kg_viz_bp
+    from docthinker.ui.routers.kg_visualization import kg_viz_bp
     if 'kg_viz.kg_viz_page' not in [rule.endpoint for rule in app.url_map.iter_rules()]:
         app.register_blueprint(kg_viz_bp)
         print("[whitecat] 知识图谱可视化路由已注册: /kg-viz")

@@ -7,7 +7,7 @@ def read_long_description():
     try:
         return Path("README.md").read_text(encoding="utf-8")
     except FileNotFoundError:
-        return "A description of RAGAnything is currently unavailable."
+        return "DocThinker - Knowledge-centric system"
 
 
 # Retrieving metadata from __init__.py
@@ -15,7 +15,7 @@ def retrieve_metadata():
     vars2find = ["__author__", "__version__", "__url__"]
     vars2readme = {}
     try:
-        with open("./raganything/__init__.py") as f:
+        with open("./docthinker/__init__.py") as f:
             for line in f.readlines():
                 for v in vars2find:
                     if line.startswith(v):
@@ -27,7 +27,7 @@ def retrieve_metadata():
                         )
                         vars2readme[v] = line.split("=")[1]
     except FileNotFoundError:
-        raise FileNotFoundError("Metadata file './raganything/__init__.py' not found.")
+        raise FileNotFoundError("Metadata file './docthinker/__init__.py' not found.")
 
     # Checking if all required variables are found
     missing_vars = [v for v in vars2find if v not in vars2readme]
@@ -72,11 +72,11 @@ extras_require = {
 }
 
 setuptools.setup(
-    name="raganything",
+    name="docthinker",
     url=metadata["__url__"],
     version=metadata["__version__"],
     author=metadata["__author__"],
-    description="RAGAnything: All-in-One RAG System",
+    description="DocThinker: Knowledge-centric system",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(

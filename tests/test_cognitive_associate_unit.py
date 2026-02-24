@@ -1,6 +1,6 @@
 import unittest
 
-from raganything.cognitive.processor import CognitiveProcessor, CognitiveInsight, PotentialLink
+from docthinker.cognitive.processor import CognitiveProcessor, CognitiveInsight, PotentialLink
 
 
 class _Entity:

@@ -30,7 +30,7 @@ def main():
     
     # 导入 Flask 应用
     try:
-        from raganything.ui.app import app, config
+        from docthinker.ui.app import app, config
         
         # 覆盖配置
         config.ui_host = args.host

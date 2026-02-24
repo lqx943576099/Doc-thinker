@@ -16,12 +16,12 @@ from typing import Dict, List, Any, Optional
 import shutil
 import tempfile
 
-from raganything import RAGAnything, RAGAnythingConfig
-from raganything.session_manager import SessionManager
-from raganything.cognitive import CognitiveProcessor
-from raganything.providers import load_settings, get_embed_client, get_vlm_client
-from raganything.services import IngestionService
-from lightrag.utils import EmbeddingFunc
+from docthinker import DocThinker, DocThinkerConfig
+from docthinker.session_manager import SessionManager
+from docthinker.cognitive import CognitiveProcessor
+from docthinker.providers import load_settings, get_embed_client, get_vlm_client
+from docthinker.services import IngestionService
+from graphcore.coregraph.utils import EmbeddingFunc
 import numpy as np
 
 settings = load_settings()
@@ -87,7 +87,7 @@ class IngestRequest(BaseModel):
     session_id: Optional[str] = None
 
 # Global RAG instance
-rag_instance: Optional[RAGAnything] = None
+rag_instance: Optional[DocThinker] = None
 # Global Cognitive Processor
 cognitive_processor: Optional[CognitiveProcessor] = None
 ingestion_service: Optional[IngestionService] = None
@@ -121,8 +121,8 @@ async def ingest_chat_turn(user_text: str, assistant_text: str, session_id: Opti
 
 
 
-def create_rag_config() -> RAGAnythingConfig:
-    return RAGAnythingConfig(
+def create_rag_config() -> DocThinkerConfig:
+    return DocThinkerConfig(
         working_dir=WORKDIR,
         parser="mineru",
         parse_method="auto",
@@ -175,13 +175,13 @@ async def get_llm_model_func():
     
     return chat_complete
 
-async def initialize_rag() -> RAGAnything:
+async def initialize_rag() -> DocThinker:
     """Initialize RAG instance with configuration"""
     embedding_func = await get_embedding_func()
     chat_complete = await get_llm_model_func()
     config = create_rag_config()
 
-    return RAGAnything(
+    return DocThinker(
         config=config,
         llm_model_func=chat_complete,
         embedding_func=embedding_func,
@@ -208,13 +208,13 @@ async def startup_event():
         get_embedding_func=get_embedding_func,
     )
     
-    # Pre-initialize LightRAG to ensure it's ready for queries even without new ingestion
+    # Pre-initialize GraphCore to ensure it's ready for queries even without new ingestion
     try:
-        if hasattr(rag_instance, '_ensure_lightrag_initialized'):
-             logger.info("Pre-initializing LightRAG instance...")
-             await rag_instance._ensure_lightrag_initialized()
+        if hasattr(rag_instance, "_ensure_graphcore_initialized"):
+            logger.info("Pre-initializing GraphCore instance...")
+            await rag_instance._ensure_graphcore_initialized()
     except Exception as e:
-        logger.exception("Failed to pre-initialize LightRAG: %s", e)
+        logger.exception("Failed to pre-initialize GraphCore: %s", e)
         
     logger.info("RAG instance initialized successfully")
 
@@ -403,7 +403,7 @@ async def get_graph_data(session_id: Optional[str] = None):
             # Initialize minimal dependencies to load graph
             session_rag.llm_model_func = await get_llm_model_func()
             session_rag.embedding_func = await get_embedding_func()
-            await session_rag._ensure_lightrag_initialized()
+            await session_rag._ensure_graphcore_initialized()
             target_rag = session_rag
         except Exception as e:
             print(f"Error loading session RAG for visualization: {e}")
@@ -413,12 +413,9 @@ async def get_graph_data(session_id: Optional[str] = None):
 
     try:
         # Extract data from NetworkX graph
-        # Fix: RAGAnything uses .lightrag, not .rag
-        if not target_rag.lightrag:
-            # Try to initialize if missing (should be handled by _ensure_lightrag_initialized)
-             await target_rag._ensure_lightrag_initialized()
-             
-        G = target_rag.lightrag.chunk_entity_relation_graph
+        if not target_rag.graphcore:
+            await target_rag._ensure_graphcore_initialized()
+        G = target_rag.graphcore.chunk_entity_relation_graph
         
         # Get internal NetworkX graph for iteration (accessing protected member for efficiency)
         # Or use public API:
@@ -448,7 +445,7 @@ async def get_graph_data(session_id: Optional[str] = None):
             
             nodes.append({
                 "id": node_id,
-                "label": node_id,  # Entity name is the node ID in LightRAG
+                "label": node_id,
                 "type": node_info.get("entity_type", "unknown"), # field name might be entity_type
                 "size": size,
                 "color": "#3498db" # Default blue
@@ -515,7 +512,7 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
                 session_rag = session_manager.get_session_rag(request.session_id, config)
                 session_rag.llm_model_func = await get_llm_model_func()
                 session_rag.embedding_func = await get_embedding_func()
-                await session_rag._ensure_lightrag_initialized()
+                await session_rag._ensure_graphcore_initialized()
                 
                 session_result = await session_rag.aquery(
                     query=request.question,
@@ -566,7 +563,7 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
                 session_rag = session_manager.get_session_rag(request.session_id, config)
                 session_rag.llm_model_func = await get_llm_model_func()
                 session_rag.embedding_func = await get_embedding_func()
-                await session_rag._ensure_lightrag_initialized()
+                await session_rag._ensure_graphcore_initialized()
                 target_rag = session_rag
             except Exception as e:
                 print(f"Error loading session RAG: {e}, falling back to global")
@@ -737,10 +734,9 @@ async def update_entity(entity_name: str, properties: Dict[str, Any]):
          raise HTTPException(status_code=500, detail="RAG instance not initialized")
     
     try:
-        if not rag_instance.lightrag:
-            await rag_instance._ensure_lightrag_initialized()
-            
-        G = rag_instance.lightrag.chunk_entity_relation_graph
+        if not rag_instance.graphcore:
+            await rag_instance._ensure_graphcore_initialized()
+        G = rag_instance.graphcore.chunk_entity_relation_graph
         
         # Check if node exists
         if await G.has_node(entity_name):
@@ -762,10 +758,9 @@ async def delete_relationship(source: str, target: str):
          raise HTTPException(status_code=500, detail="RAG instance not initialized")
     
     try:
-        if not rag_instance.lightrag:
-            await rag_instance._ensure_lightrag_initialized()
-            
-        G = rag_instance.lightrag.chunk_entity_relation_graph
+        if not rag_instance.graphcore:
+            await rag_instance._ensure_graphcore_initialized()
+        G = rag_instance.graphcore.chunk_entity_relation_graph
         
         if await G.has_edge(source, target):
             await G.remove_edges([(source, target)])
@@ -779,7 +774,7 @@ async def delete_relationship(source: str, target: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-from raganything.server.app import app as app
+from docthinker.server.app import app as app
 
 if __name__ == "__main__":
     import uvicorn

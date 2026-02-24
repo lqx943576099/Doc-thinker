@@ -3,12 +3,12 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "raganything"
+name = "docthinker"
 dynamic = ["version"]
 authors = [
     {name = "Zirui Guo"}
 ]
-description = "Doc Thinker (AutoThink): document parsing, graph RAG, and evaluation"
+description = "Doc Thinker: document parsing, graph reasoning, and orchestration"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -22,7 +22,6 @@ classifiers = [
 ]
 dependencies = [
     "huggingface_hub",
-    "lightrag-hku",
     "mineru[core]",
     "tqdm",
     "rank-bm25",
@@ -64,13 +63,13 @@ dev-dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["raganything*"]
+include = ["docthinker*"]
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.dynamic]
-version = {attr = "raganything.__version__"}
+version = {attr = "docthinker.__version__"}
 
 [tool.ruff]
 target-version = "py310"

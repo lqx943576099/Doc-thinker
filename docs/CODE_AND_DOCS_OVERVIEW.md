@@ -13,7 +13,7 @@
 | 知识图谱优化 | `docs/KG_OPTIMIZATIONS.md` | 主 KG 与记忆图的 UI/构建/变更/合并/查询/存储：已做与可做优化清单 |
 | 类脑记忆设计 | `neuro_memory/DESIGN.md` | 扩散激活、巩固重放、结构映射与类比、显著性、图式、区分；算法模块与数据结构 |
 | 类脑记忆验证 | `neuro_memory/VERIFY.md` | 本地脚本验证、完整服务验证、自检清单 |
-| LinearRAG | `LinearRAG/readme.md` | 独立子项目：无关系图构建、NER+语义链接、与主 RAG 的 graph_construction_mode="linear" 可对接 |
+| （内部模块） | （不公开） | 线性图与 NER 模块不在开源仓库暴露 |
 
 ---
 
@@ -142,16 +142,6 @@
   → 或 直接 rag_instance.query
   → _ingest_chat_turn（写认知记忆 + 记忆引擎 + ingest_text）
 ```
-
----
-
-## 九、脚本与评测（README 已写，此处仅列）
-
-- `scripts/ingest_mineru_academic.py`：按 MinerU 输出入库。  
-- `scripts/run_qa_eval.py`：单问题集评测。  
-- `scripts/run_batch_eval.py`：批量评测。  
-- `scripts/mmtest_bai.py`：MMLongBench 主流程。  
-- `scripts/verify_neuro_memory.py`：类脑记忆本地验证（见 `neuro_memory/VERIFY.md`）。
 
 ---
 

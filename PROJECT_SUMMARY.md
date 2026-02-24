@@ -14,7 +14,6 @@
 doc/
 ├── 核心库目录/          # 多模态文档问答 (2MB)
 ├── Autothink-RAG/        # 实验性子项目 (24MB)
-├── LinearRAG/           # 实验性子项目 (1MB)
 ├── 图存储目录/            # 本地图/向量实现 (4MB)
 ├── neuro_memory/        # 记忆系统 (50KB) ⭐ 核心
 ├── scripts/             # 评测脚本
@@ -47,7 +46,7 @@ doc/
 ├── retrieval/               # 检索层
 ├── agent/                   # 智能体编排
 ├── api/                     # API 接口
-└── examples/                # 场景演示
+└── config/                  # 配置文件
 
 定位清晰:
 - 核心: neuro_core (类人脑记忆)
@@ -162,7 +161,6 @@ DocumentPerceiver:
 | 项目 | 大小 | 角色 |
 |------|------|------|
 | `Autothink-RAG/` | 24MB | 文档理解架构 (备用) |
-| `LinearRAG/` | 1MB | Graph RAG 优化 (备用) |
 | 图存储目录 | 4MB | 本地图/向量实现修改版 |
 | 核心库目录 | 2MB | 多模态实现 |
 

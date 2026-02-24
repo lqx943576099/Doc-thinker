@@ -1,9 +1,9 @@
 import unittest
 
-from raganything.services.ingestion_service import IngestionService
+from docthinker.services.ingestion_service import IngestionService
 
 
-class _LightRAG:
+class _GraphCore:
     def __init__(self):
         self.items = []
 
@@ -13,12 +13,12 @@ class _LightRAG:
 
 class _RAG:
     def __init__(self):
-        self.lightrag = None
-        self._lr = _LightRAG()
+        self.graphcore = None
+        self._lr = _GraphCore()
         self.folders = []
 
-    async def _ensure_lightrag_initialized(self):
-        self.lightrag = self._lr
+    async def _ensure_graphcore.coregraph_initialized(self):
+        self.graphcore = self._lr
 
     async def process_folder_complete(self, folder_path: str):
         self.folders.append(folder_path)
@@ -60,8 +60,8 @@ class IngestionServiceUnitTest(unittest.IsolatedAsyncioTestCase):
             get_embedding_func=_fake_embed,
         )
         await svc.ingest_text("hello", session_id="s1")
-        self.assertIn("hello", global_rag.lightrag.items)
-        self.assertIn("hello", sm.rags["s1"].lightrag.items)
+        self.assertIn("hello", global_rag.graphcore.coregraph.items)
+        self.assertIn("hello", sm.rags["s1"].graphcore.coregraph.items)
 
 
 if __name__ == "__main__":

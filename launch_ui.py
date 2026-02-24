@@ -28,7 +28,7 @@ def main():
     print("=" * 60)
     
     try:
-        from raganything.ui.app import app
+        from docthinker.ui.app import app
         print("\n[1/2] Flask application loaded successfully\n")
         
         print("[2/2] Available routes:")

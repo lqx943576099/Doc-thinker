@@ -82,9 +82,6 @@ doc/
 │   └── server.py            # FastAPI 服务
 │
 ├── main.py                  # 主入口
-├── examples/                # 示例代码
-│   └── basic_usage.py       # 基础使用示例
-│
 └── config/                  # 配置文件
     └── settings.yaml
 ```
@@ -181,7 +178,6 @@ Episode(
 | `neuro_memory/` | `neuro_core/` | 核心记忆系统 |
 | 核心库 cognitive/ | `cognition/` | 认知层独立 |
 | 核心库 parser | `perception/document/` | 感知层 |
-| `LinearRAG/` | `retrieval/` | 整合到检索层 |
 | 分散的测试文件 | `tests/` | 统一测试目录 |
 
 ## 迁移的组件
@@ -194,13 +190,11 @@ Episode(
 ## 未迁移的组件
 
 - `Autothink-RAG/` - 保留在项目根目录，作为文档理解 RAG 架构
-- `LinearRAG/` - 保留在项目根目录，用于优化 Graph RAG
 - 图存储目录 - 保留在项目根目录，本地图/向量实现修改版
 
 ## 下一步优化
 
 1. **整合 Autothink-RAG** - 将文档理解能力深度整合到感知层
-2. **整合 LinearRAG** - 将图优化算法整合到检索层
 3. **添加工具调用** - 在 agent/tools/ 添加工具集
 4. **完善 API** - 添加更多 RESTful 接口
 5. **添加可视化** - 记忆图谱可视化界面
