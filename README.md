@@ -135,12 +135,17 @@ python main.py --server
 
 | 目录 | 说明 |
 |------|------|
-| `neuro_core/` | **核心记忆系统**：负责 KG 构建、扩散激活、自动联想。 |
-| `perception/` | **感知层**：处理文档解析（PDF/MD）和用户对话输入。 |
-| `cognition/` | **认知层**：负责意图理解和任务规划。 |
-| `agent/` | **智能体编排**：Agent 逻辑控制与会话管理。 |
-| `retrieval/` | **检索层**：混合检索实现（图检索 + 向量检索）。 |
-| `api/` | **服务端**：FastAPI 接口定义。 |
+| `docthinker/` | **DocThinker 主库**：解析、入库、查询、知识图谱、超图、认知、UI、FastAPI 后端（`docthinker.server.app`）。 |
+| `graphcore/` | **图 RAG 引擎**：KG 与向量检索、LLM 绑定等，被 docthinker 调用。 |
+| `neuro_core/` | **类脑记忆（NeuroAgent）**：KG 构建、扩散激活、自动联想，供 `main.py` 交互/API 使用。 |
+| `neuro_memory/` | **类脑记忆（DocThinker 集成）**：与 docthinker 服务端集成的记忆引擎。 |
+| `perception/` | **感知层**：文档解析（PDF/MD）与对话输入。 |
+| `cognition/` | **认知层**：意图理解与任务规划。 |
+| `agent/` | **智能体编排**：Agent 逻辑与会话管理。 |
+| `retrieval/` | **检索层**：混合检索（图 + 向量）。 |
+| `api/` | **NeuroAgent 的 FastAPI**：`main.py --server` 时使用。 |
+
+**启动说明**：Web UI 使用 **DocThinker 后端** 时，请先启动 `python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000`，再在另一终端运行 `python run_ui.py`；仅需 **NeuroAgent** 时使用 `python main.py` / `python main.py --server`。
 
 ---
 

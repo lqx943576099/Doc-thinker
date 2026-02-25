@@ -22,7 +22,7 @@ python run_ui.py
 ### 2. 后端 API（FastAPI，端口 8000）
 
 ```bash
-python scripts/start_api.py
+python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 - 会话、检索、知识图谱/记忆图谱等接口挂载在 `/api/v1/` 下；Flask UI 会代理到该后端。
@@ -66,6 +66,6 @@ python scripts/start_api.py
 
 ## 五、启动顺序建议
 
-1. 先启动后端：`python scripts/start_api.py`  
+1. 先启动后端：`python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000`  
 2. 再启动 UI：`python run_ui.py`  
 3. 浏览器访问：http://127.0.0.1:5000/query ，右上角或侧栏应可见「知识图谱」。

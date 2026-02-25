@@ -125,7 +125,7 @@ class HybridRAGOrchestrator:
             lookup_details = lookup.get("details")
             lookup_blocks = lookup.get("blocks") or []
             if lookup_blocks and (doc_id or (rag_kwargs or {}).get("doc_id")):
-                await self._ingest_lookup_blocks_to_graphcore.coregraph(
+                await self._ingest_lookup_blocks_to_coregraph(
                     doc_id or (rag_kwargs or {}).get("doc_id"),
                     lookup_blocks,
                 )
@@ -517,12 +517,12 @@ class HybridRAGOrchestrator:
             }
         return None
 
-    async def _ingest_lookup_blocks_to_graphcore.coregraph(
+    async def _ingest_lookup_blocks_to_coregraph(
         self,
         doc_id: str,
         blocks: Sequence[Dict[str, Any]],
     ) -> None:
-        """Insert lookup-derived blocks into GraphCore as a temporary doc."""
+        """Insert lookup-derived blocks into CoreGraph as a temporary doc."""
         if not blocks or not hasattr(self.rag, "insert_content_list"):
             return
         temp_doc_id = f"{doc_id}__lookup"

@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional
 # Add the project root directory to the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
 from flask_cors import CORS
 from jinja2 import FileSystemLoader
 
@@ -141,6 +141,17 @@ aside img[alt="DocThinker"] {
         except Exception as _e:
             pass
     return response
+
+# Logo: 从项目根目录直接提供，确保左上角能显示（app.py 在 docthinker/ui/，上两级为项目根）
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_LOGO_PATH = _PROJECT_ROOT / "logo.png"
+
+@app.route('/logo.png')
+def serve_logo():
+    """从项目根 logo.png 提供 logo，避免 static 路径或缓存问题"""
+    if _LOGO_PATH.exists():
+        return send_file(_LOGO_PATH, mimetype='image/png', max_age=3600)
+    return send_file(Path(__file__).resolve().parent / 'static' / 'logo.png', mimetype='image/png', max_age=3600)
 
 # Home route
 @app.route('/')

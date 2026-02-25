@@ -336,7 +336,7 @@ class BatchMixin:
 
         # Step 2: Process with RAG
         # Initialize RAG system
-        await self._ensure_graphcore.coregraph_initialized()
+        await self._ensure_graphcore_initialized()
 
         # Then, process each successful file with RAG
         rag_results = {}

@@ -17,7 +17,7 @@ class _RAG:
         self._lr = _GraphCore()
         self.folders = []
 
-    async def _ensure_graphcore.coregraph_initialized(self):
+    async def _ensure_graphcore_initialized(self):
         self.graphcore = self._lr
 
     async def process_folder_complete(self, folder_path: str):
@@ -60,10 +60,9 @@ class IngestionServiceUnitTest(unittest.IsolatedAsyncioTestCase):
             get_embedding_func=_fake_embed,
         )
         await svc.ingest_text("hello", session_id="s1")
-        self.assertIn("hello", global_rag.graphcore.coregraph.items)
-        self.assertIn("hello", sm.rags["s1"].graphcore.coregraph.items)
+        self.assertIn("hello", global_rag.graphcore.items)
+        self.assertIn("hello", sm.rags["s1"].graphcore.items)
 
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -237,8 +237,8 @@ class QueryMixin:
                 }]
             )
         """
-        # Ensure GraphCore is initialized
-        await self._ensure_graphcore.coregraph_initialized()
+        # Ensure CoreGraph is initialized
+        await self._ensure_graphcore_initialized()
 
         self.logger.info(f"Executing multimodal query: {query[:100]}...")
         self.logger.info(f"Query mode: {mode}")
@@ -256,7 +256,7 @@ class QueryMixin:
         # Check cache if available and enabled
         cached_result = None
         if (
-            hasattr(self, "graphcore.coregraph")
+            hasattr(self, "graphcore")
             and self.graphcore
             and hasattr(self.graphcore, "llm_response_cache")
             and self.graphcore.llm_response_cache
@@ -292,7 +292,7 @@ class QueryMixin:
 
         # Save to cache if available and enabled
         if (
-            hasattr(self, "graphcore.coregraph")
+            hasattr(self, "graphcore")
             and self.graphcore
             and hasattr(self.graphcore, "llm_response_cache")
             and self.graphcore.llm_response_cache
@@ -321,7 +321,7 @@ class QueryMixin:
 
         # Ensure cache is persisted to disk
         if (
-            hasattr(self, "graphcore.coregraph")
+            hasattr(self, "graphcore")
             and self.graphcore
             and hasattr(self.graphcore, "llm_response_cache")
             and self.graphcore.llm_response_cache
@@ -358,7 +358,7 @@ class QueryMixin:
             )
 
         # Ensure GraphCore is initialized
-        await self._ensure_graphcore.coregraph_initialized()
+        await self._ensure_graphcore_initialized()
 
         self.logger.info(f"Executing VLM enhanced query: {query[:100]}...")
 

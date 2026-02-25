@@ -3,7 +3,11 @@
 ## 步骤 1: 启动 FastAPI 后端 (端口 8000)
 
 ```bash
-python scripts/start_api.py
+python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000
+```
+或使用根目录入口：
+```bash
+python api_multi_document.py
 ```
 
 或者使用 hypercorn (如果安装了):

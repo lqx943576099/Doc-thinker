@@ -523,7 +523,7 @@ class ProcessorMixin:
         attempts = 3
         for attempt in range(attempts):
             try:
-                await self._ensure_graphcore.coregraph_initialized()
+                await self._ensure_graphcore_initialized()
                 await self._process_multimodal_content_batch_type_aware(
                     multimodal_items=multimodal_items, file_path=file_path, doc_id=doc_id
                 )
@@ -1017,7 +1017,7 @@ class ProcessorMixin:
             # Fallback to just the description if template fails
             return description
 
-    async def _store_chunks_to_graphcore.coregraph_storage_type_aware(
+    async def _store_chunks_to_coregraph_storage_type_aware(
         self, chunks: Dict[str, Any]
     ):
         """Store chunks to storage"""
@@ -1037,7 +1037,7 @@ class ProcessorMixin:
     async def _store_multimodal_main_entities(
         self,
         multimodal_data_list: List[Dict[str, Any]],
-        graphcore.coregraph_chunks: Dict[str, Any],
+        coregraph_chunks: Dict[str, Any],
         file_path: str,
         doc_id: str = None,
     ):
@@ -1047,7 +1047,7 @@ class ProcessorMixin:
 
         Args:
             multimodal_data_list: List of processed multimodal data with entity info
-            graphcore.coregraph_chunks: Chunks in GraphCore format (already formatted with templates)
+            coregraph_chunks: Chunks in CoreGraph format (already formatted with templates)
             file_path: File path for the entities
             doc_id: Document ID for full_entities storage
         """
@@ -1069,7 +1069,7 @@ class ProcessorMixin:
                 content_type, original_item, description
             )
 
-            # Generate chunk_id using the formatted content (same as in _convert_to_graphcore.coregraph_chunks)
+            # Generate chunk_id using the formatted content (same as in _convert_to_coregraph_chunks)
             chunk_id = compute_mdhash_id(formatted_chunk_content, prefix="chunk-")
 
             # Generate entity_id using GraphCore's standard format
@@ -1184,8 +1184,8 @@ class ProcessorMixin:
             )
             raise
 
-    async def _batch_extract_entities_graphcore.coregraph_style_type_aware(
-        self, graphcore.coregraph_chunks: Dict[str, Any]
+    async def _batch_extract_entities_coregraph_style_type_aware(
+        self, coregraph_chunks: Dict[str, Any]
     ) -> List[Tuple]:
         """Use GraphCore's extract_entities for batch entity relation extraction"""
         from graphcore.coregraph.kg.shared_storage import (
@@ -1263,7 +1263,7 @@ class ProcessorMixin:
 
         tasks = [
             asyncio.create_task(_extract_one(chunk_id, chunk))
-            for chunk_id, chunk in graphcore.coregraph_chunks.items()
+            for chunk_id, chunk in coregraph_chunks.items()
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for res in results:
@@ -1274,7 +1274,7 @@ class ProcessorMixin:
                 all_results.extend(res)
 
         self.logger.info(
-            f"Extracted entities from {len(all_results)} results across {len(graphcore.coregraph_chunks)} multimodal chunks"
+            f"Extracted entities from {len(all_results)} results across {len(coregraph_chunks)} multimodal chunks"
         )
         
         # Add entities and relationships to knowledge base
@@ -1282,8 +1282,8 @@ class ProcessorMixin:
             for result in all_results:
                 # Each result is a tuple containing entities and relationships
                 chunk_id = result[0] if result else None
-                if chunk_id and chunk_id in graphcore.coregraph_chunks:
-                    chunk = graphcore.coregraph_chunks[chunk_id]
+                if chunk_id and chunk_id in coregraph_chunks:
+                    chunk = coregraph_chunks[chunk_id]
                     doc_id = chunk.get('full_doc_id')
                     content = chunk.get('content', '')
                     
@@ -1348,8 +1348,8 @@ class ProcessorMixin:
             for result in all_results:
                 if result and len(result) > 0:
                     chunk_id = result[0] if isinstance(result[0], str) else None
-                    if chunk_id and chunk_id in graphcore.coregraph_chunks:
-                        chunk = graphcore.coregraph_chunks[chunk_id]
+                    if chunk_id and chunk_id in coregraph_chunks:
+                        chunk = coregraph_chunks[chunk_id]
                         # Add chunk content to knowledge base
                         self.add_knowledge_entry(
                             content=chunk['content'],
@@ -1366,7 +1366,7 @@ class ProcessorMixin:
 
     async def _batch_extract_entities_hypergraph_prompt(
         self,
-        graphcore.coregraph_chunks: Dict[str, Any],
+        coregraph_chunks: Dict[str, Any],
         *,
         doc_id: str,
         file_path: str,
@@ -1375,7 +1375,7 @@ class ProcessorMixin:
         from docthinker.hypergraph.operate import extract_entities as hyper_extract_entities
 
         if self.graphcore is None:
-            raise RuntimeError("GraphCore must be initialized before extraction.")
+            raise RuntimeError("CoreGraph must be initialized before extraction.")
 
         llm_func = self.llm_model_func or getattr(self.graphcore, "llm_model_func", None)
         if llm_func is None:
@@ -1384,7 +1384,7 @@ class ProcessorMixin:
             )
 
         hyper_chunks: Dict[str, Dict[str, Any]] = {}
-        for chunk_id, chunk in graphcore.coregraph_chunks.items():
+        for chunk_id, chunk in coregraph_chunks.items():
             content = chunk.get("content", "")
             metadata = {
                 "doc_id": doc_id,
@@ -1450,7 +1450,7 @@ class ProcessorMixin:
             content_type = data["content_type"]
             original_item = data["original_item"]
 
-            # Use the same template formatting as in _convert_to_graphcore.coregraph_chunks_type_aware
+            # Use the same template formatting as in _convert_to_coregraph_chunks_type_aware
             formatted_chunk_content = self._apply_chunk_template(
                 content_type, original_item, description
             )
@@ -1501,10 +1501,10 @@ class ProcessorMixin:
         )
         return enhanced_chunk_results
 
-    async def _batch_merge_graphcore.coregraph_style_type_aware(
+    async def _batch_merge_coregraph_style_type_aware(
         self, enhanced_chunk_results: List[Tuple], file_path: str, doc_id: str = None
     ):
-        """Use GraphCore's merge_nodes_and_edges for batch merge"""
+        """Use CoreGraph's merge_nodes_and_edges for batch merge"""
         from graphcore.coregraph.kg.shared_storage import (
             get_namespace_data,
             get_namespace_lock,
@@ -1728,7 +1728,7 @@ class ProcessorMixin:
             **kwargs: Additional parameters for parser (e.g., lang, device, start_page, end_page, formula, table, backend, source)
         """
         # Ensure GraphCore is initialized
-        await self._ensure_graphcore.coregraph_initialized()
+        await self._ensure_graphcore_initialized()
 
         # Use config defaults if not provided
         if output_dir is None:
@@ -1795,7 +1795,7 @@ class ProcessorMixin:
 
         self.logger.info(f"Document {file_path} processing complete!")
 
-    async def process_document_complete_graphcore.coregraph_api(
+    async def process_document_complete_coregraph_api(
         self,
         file_path: str,
         output_dir: str = None,
@@ -1809,7 +1809,7 @@ class ProcessorMixin:
         **kwargs,
     ):
         """
-        API exclusively for GraphCore calls: Complete document processing workflow
+        API exclusively for CoreGraph calls: Complete document processing workflow
 
         Args:
             file_path: Path to the file to process
@@ -1832,8 +1832,8 @@ class ProcessorMixin:
         current_doc_status = await self.graphcore.doc_status.get_by_id(doc_pre_id)
 
         try:
-            # Ensure GraphCore is initialized
-            result = await self._ensure_graphcore.coregraph_initialized()
+            # Ensure CoreGraph is initialized
+            result = await self._ensure_graphcore_initialized()
             if not result["success"]:
                 await self.graphcore.doc_status.upsert(
                     {
@@ -2059,7 +2059,7 @@ class ProcessorMixin:
             - Items are processed in the order they appear in the list
         """
         # Ensure GraphCore is initialized
-        await self._ensure_graphcore.coregraph_initialized()
+        await self._ensure_graphcore_initialized()
 
         # Use config defaults if not provided
         if display_stats is None:

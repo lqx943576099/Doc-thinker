@@ -1,8 +1,8 @@
 # 如何验证 neuro_memory 是否好用
 
-## 一、本地脚本验证（推荐先做）
+## 一、本地脚本验证（可选）
 
-在项目根目录执行：
+若仓库中存在 `scripts/verify_neuro_memory.py`，可在项目根目录执行：
 
 ```bash
 # 1. 仅用内存 mock，不调 API，最快
@@ -15,11 +15,9 @@ python scripts/verify_neuro_memory.py --embed
 python scripts/verify_neuro_memory.py --embed --llm
 ```
 
-**Windows 下若中文乱码**，可先执行：
-```bash
-chcp 65001
-python scripts/verify_neuro_memory.py
-```
+**说明**：当前仓库可能不包含 `scripts/` 目录，若无该脚本可直接进行「二、在完整服务里验证」。
+
+**Windows 下若中文乱码**，可先执行：`chcp 65001`
 
 **看什么算“好用”：**
 
@@ -36,8 +34,8 @@ python scripts/verify_neuro_memory.py
 
 ```bash
 # 在项目根目录
-python scripts/start_api.py
-# 或你当前的启动方式
+python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000
+# 或：python api_multi_document.py
 ```
 
 ### 2. 看记忆引擎是否启用
@@ -83,7 +81,7 @@ curl -X POST "http://localhost:8000/graph/memory/consolidate?recent_n=30&run_llm
 
 | 项目 | 说明 |
 |------|------|
-| 脚本能跑通 | `python scripts/verify_neuro_memory.py` 无报错，有 4 条经历写入与两次类比检索结果 |
+| 脚本能跑通 | 若存在脚本：`python scripts/verify_neuro_memory.py` 无报错，有 4 条经历写入与两次类比检索结果 |
 | 类比检索有结果 | 问并购 → 优先出现并购经历；问会议 → 优先出现会议经历 |
 | 服务里 enabled | `GET /graph/memory/stats` 返回 `enabled: true` |
 | 对话后 episodes 增加 | 多轮对话后再次查 stats，`episodes` 增大 |

@@ -26,8 +26,13 @@ class IngestionService:
 
     async def _get_session_rag(self, session_id: str) -> Any:
         config = self.create_rag_config()
-        graphcore_kwargs = self.rag_global.graphcore_kwargs
-        session_rag = self.session_manager.get_session_rag(session_id, config, graphcore_kwargs)
+        graphcore_kwargs = getattr(self.rag_global, "graphcore_kwargs", {})
+        try:
+            session_rag = self.session_manager.get_session_rag(
+                session_id, config, graphcore_kwargs
+            )
+        except TypeError:
+            session_rag = self.session_manager.get_session_rag(session_id, config)
         session_rag.llm_model_func = await self.get_llm_model_func()
         session_rag.embedding_func = await self.get_embedding_func()
         await session_rag._ensure_graphcore_initialized()

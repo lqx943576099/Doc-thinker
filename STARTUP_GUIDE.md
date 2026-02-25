@@ -31,7 +31,7 @@ python run_ui_v2.py
 
 **终端 1 - 启动 FastAPI 后端：**
 ```bash
-python scripts/start_api.py
+python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 **终端 2 - 启动 Flask UI：**
@@ -99,7 +99,7 @@ python run_ui_v2.py --debug
 | 服务 | 端口 | 用途 | 启动命令 |
 |------|------|------|----------|
 | Flask UI | 5000 | Web 界面 | `python run_ui.py` |
-| FastAPI | 8000 | API 后端 | `python scripts/start_api.py` |
+| FastAPI | 8000 | API 后端 | `python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000` |
 
 ## 功能对比
 
@@ -164,7 +164,7 @@ python run_ui_v2.py
 
 终端 1:
 ```bash
-python scripts/start_api.py
+python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 终端 2:

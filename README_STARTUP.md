@@ -18,7 +18,7 @@ python run_ui_v2.py
 
 **终端 1 - 启动后端 API：**
 ```bash
-python scripts/start_api.py
+python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 **终端 2 - 启动前端 UI：**

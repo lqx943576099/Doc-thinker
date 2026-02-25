@@ -6,7 +6,7 @@
 |--------|------|------|
 | **核心库目录** | AutoThink 核心库与后端 | 解析、入库、查询、知识图谱、自动思考、超图、cognitive、UI 等，被 server 与脚本直接使用。（目录名见仓库根下。） |
 | **neuro_memory/** | 类脑记忆引擎 | 与 AutoThink 核心对接，写入/巩固/类比检索；server 在 lifespan 中初始化并挂到 state.memory_engine。 |
-| **scripts/** | 入库与脚本 | 如 verify_neuro_memory、ingest_mineru_academic 等，README 中说明的入口。 |
+| **scripts/** | 可选脚本目录 | 当前仓库可能不包含此目录；若有则可用于入库、验证等脚本（如 verify_neuro_memory）。后端启动请使用 `uvicorn docthinker.server.app:app`。 |
 | **docs/** | 项目文档 | PROJECT_STRUCTURE、CODE_AND_DOCS_OVERVIEW、KG_OPTIMIZATIONS、FOLDERS 等。 |
 | **tests/** | 单元/集成测试 | 正式测试用例，与根目录零散的 test_*.py 不同。 |
 

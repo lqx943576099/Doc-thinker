@@ -81,15 +81,15 @@ async def get_graph_data(session_id: Optional[str] = None):
             session_rag = state.session_manager.get_session_rag(session_id, config)
             session_rag.llm_model_func = state.rag_instance.llm_model_func
             session_rag.embedding_func = state.rag_instance.embedding_func
-            await session_rag._ensure_graphcore.coregraph_initialized()
+            await session_rag._ensure_graphcore_initialized()
             target_rag = session_rag
         except Exception as e:
             raise HTTPException(status_code=404, detail=f"Session graph not found: {e}")
 
     try:
-        if not target_rag.graphcore.coregraph:
-            await target_rag._ensure_graphcore.coregraph_initialized()
-        G = target_rag.graphcore.coregraph.chunk_entity_relation_graph
+        if not target_rag.graphcore:
+            await target_rag._ensure_graphcore_initialized()
+        G = target_rag.graphcore.chunk_entity_relation_graph
         nodes_data = await G.get_all_nodes()
         edges_data = await G.get_all_edges()
 
@@ -222,9 +222,9 @@ async def update_entity(entity_name: str, properties: Dict[str, Any]):
     if not state.rag_instance:
         raise HTTPException(status_code=500, detail="Service not initialized")
     try:
-        if not state.rag_instance.graphcore.coregraph:
-            await state.rag_instance._ensure_graphcore.coregraph_initialized()
-        G = state.rag_instance.graphcore.coregraph.chunk_entity_relation_graph
+        if not state.rag_instance.graphcore:
+            await state.rag_instance._ensure_graphcore_initialized()
+        G = state.rag_instance.graphcore.chunk_entity_relation_graph
         if await G.has_node(entity_name):
             await G.upsert_node(entity_name, properties)
             await G.index_done_callback()
@@ -241,9 +241,9 @@ async def delete_relationship(source: str, target: str):
     if not state.rag_instance:
         raise HTTPException(status_code=500, detail="Service not initialized")
     try:
-        if not state.rag_instance.graphcore.coregraph:
-            await state.rag_instance._ensure_graphcore.coregraph_initialized()
-        G = state.rag_instance.graphcore.coregraph.chunk_entity_relation_graph
+        if not state.rag_instance.graphcore:
+            await state.rag_instance._ensure_graphcore_initialized()
+        G = state.rag_instance.graphcore.chunk_entity_relation_graph
         if await G.has_edge(source, target):
             await G.remove_edges([(source, target)])
             await G.index_done_callback()

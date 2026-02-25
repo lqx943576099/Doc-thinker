@@ -232,7 +232,6 @@ def create_app() -> FastAPI:
         )
 
     for r in [health_router, sessions_router, ingest_router, query_router, graph_router]:
-        app.include_router(r)
         app.include_router(r, prefix=api_config.api_prefix)
 
     return app

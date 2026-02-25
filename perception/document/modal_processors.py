@@ -22,7 +22,7 @@ from graphcore.coregraph.utils import (
     logger,
     compute_mdhash_id,
 )
-from graphcore.coregraph.graphcore.coregraph import GraphCore
+from graphcore.coregraph import GraphCore
 from dataclasses import asdict
 from graphcore.coregraph.kg.shared_storage import get_namespace_data, get_namespace_lock
 from graphcore.coregraph.operate import extract_entities, merge_nodes_and_edges
@@ -363,33 +363,33 @@ class BaseModalProcessor:
 
     def __init__(
         self,
-        graphcore.coregraph: GraphCore,
+        graphcore: GraphCore,
         modal_caption_func,
         context_extractor: ContextExtractor = None,
     ):
         """Initialize base processor
 
         Args:
-            graphcore.coregraph: GraphCore instance
+            graphcore: GraphCore instance
             modal_caption_func: Function for generating descriptions
             context_extractor: Context extractor instance
         """
-        self.graphcore = graphcore.coregraph
+        self.graphcore = graphcore
         self.modal_caption_func = modal_caption_func
 
         # Use GraphCore's storage instances
-        self.text_chunks_db = graphcore.coregraph.text_chunks
-        self.chunks_vdb = graphcore.coregraph.chunks_vdb
-        self.entities_vdb = graphcore.coregraph.entities_vdb
-        self.relationships_vdb = graphcore.coregraph.relationships_vdb
-        self.knowledge_graph_inst = graphcore.coregraph.chunk_entity_relation_graph
+        self.text_chunks_db = graphcore.text_chunks
+        self.chunks_vdb = graphcore.chunks_vdb
+        self.entities_vdb = graphcore.entities_vdb
+        self.relationships_vdb = graphcore.relationships_vdb
+        self.knowledge_graph_inst = graphcore.chunk_entity_relation_graph
 
         # Use GraphCore's configuration and functions
-        self.embedding_func = graphcore.coregraph.embedding_func
-        self.llm_model_func = graphcore.coregraph.llm_model_func
-        self.global_config = asdict(graphcore.coregraph)
-        self.hashing_kv = graphcore.coregraph.llm_response_cache
-        self.tokenizer = graphcore.coregraph.tokenizer
+        self.embedding_func = graphcore.embedding_func
+        self.llm_model_func = graphcore.llm_model_func
+        self.global_config = asdict(graphcore)
+        self.hashing_kv = graphcore.llm_response_cache
+        self.tokenizer = graphcore.tokenizer
 
         # Initialize context extractor with tokenizer if not provided
         if context_extractor is None:
@@ -801,18 +801,18 @@ class ImageModalProcessor(BaseModalProcessor):
 
     def __init__(
         self,
-        graphcore.coregraph: GraphCore,
+        graphcore: GraphCore,
         modal_caption_func,
         context_extractor: ContextExtractor = None,
     ):
         """Initialize image processor
 
         Args:
-            graphcore.coregraph: GraphCore instance
+            graphcore: GraphCore instance
             modal_caption_func: Function for generating descriptions (supporting image understanding)
             context_extractor: Context extractor instance
         """
-        super().__init__(graphcore.coregraph, modal_caption_func, context_extractor)
+        super().__init__(graphcore, modal_caption_func, context_extractor)
 
     def _encode_image_to_base64(self, image_path: str) -> str:
         """Encode image to base64"""
