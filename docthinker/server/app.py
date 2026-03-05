@@ -1,6 +1,7 @@
 import numpy as np
 from contextlib import asynccontextmanager
 from typing import Any, List
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +22,30 @@ from docthinker.hypergraph import HyperGraphRAG
 
 from .state import state
 from .routers import health_router, sessions_router, ingest_router, query_router, graph_router
+
+
+def _cleanup_global_graphcore_artifacts(workdir: str) -> None:
+    """Remove root-level GraphCore artifacts so knowledge remains session-scoped."""
+    root = Path(workdir)
+    if not root.exists():
+        return
+
+    removed: list[str] = []
+    for pattern in ("graph_*.graphml", "vdb_*.json", "kv_store_*.json"):
+        for path in root.glob(pattern):
+            if path.name in {"episodes.json", "memory_graph.json", "episode_vectors.json"}:
+                continue
+            try:
+                path.unlink()
+                removed.append(path.name)
+            except Exception:
+                continue
+
+    if removed:
+        print(
+            "INFO: Removed global GraphCore artifacts for session isolation: "
+            + ", ".join(sorted(removed))
+        )
 
 
 def _create_rag_config() -> DocThinkerConfig:
@@ -132,26 +157,16 @@ async def lifespan(app: FastAPI):
     state.settings = load_settings()
     state.api_config = APIConfig()
     state.session_manager = SessionManager(base_storage_path=state.settings.workdir)
+    _cleanup_global_graphcore_artifacts(state.settings.workdir)
 
     state.rag_instance = await _initialize_rag()
-    try:
-        await state.rag_instance._ensure_graphcore_initialized()
-    except Exception:
-        pass
-
-    # 预先加载主 KG 实体 ID，供记忆桥接边 (MENTIONS) 判断
-    try:
-        if state.rag_instance and state.rag_instance.graphcore:
-            G = state.rag_instance.graphcore.chunk_entity_relation_graph
-            nodes = await G.get_all_nodes()
-            state.kg_entity_ids = {n.get("id", "") for n in nodes if n.get("id")}
-    except Exception:
-        state.kg_entity_ids = set()
+    # Session isolation: do not initialize global GraphCore.
+    state.kg_entity_ids = set()
 
     state.cognitive_processor = CognitiveProcessor(
         llm_func=state.rag_instance.llm_model_func,
         embedding_func=state.rag_instance.embedding_func,
-        knowledge_graph=state.rag_instance.knowledge_graph,
+        knowledge_graph=None,
     )
     try:
         from neuro_memory import MemoryEngine
@@ -252,3 +267,4 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+

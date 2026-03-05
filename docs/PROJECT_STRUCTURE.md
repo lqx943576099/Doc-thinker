@@ -39,10 +39,7 @@
 3. `query` 路由调用编排器与记忆引擎
 4. `graph` 路由负责图谱数据、记忆统计、KG扩展
 
-## 5. 已移除范围（摘要）
+## 5. 清理结果
 
-- 旧入口：`main.py`、`neuro_agent.py`、`neuro_agent_v2.py`
-- 旧目录：`agent/`、`cognition/`、`perception/`、`retrieval/`、`neuro_core/`、`api/`
-- 旧 UI 模板与旧路由：`docthinker/ui/routers/kg_visualization.py`、非 modern 模板
-
-详细清单见：`docs/CLEANUP_EXECUTION_2026-03-05.md`。
+- 仅保留 `docthinker + graphcore + neuro_memory` 主线。
+- 旧入口与旧模块已移除，不再维护兼容分支。

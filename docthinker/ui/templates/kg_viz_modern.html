@@ -25,7 +25,7 @@
         </p>
     </div>
     <div class="flex gap-2 items-center">
-        <a id="switch-global-btn" href="/knowledge-graph" class="px-3 py-2 rounded-lg text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 hidden" title="扩展节点在全局图谱中">切到全局图谱</a>
+        <select id="kg-session-selector" class="input-field px-3 py-2 rounded-lg text-sm min-w-[260px]" onchange="handleKgSessionSwitch(this.value)"></select>
         <button id="expand-btn" onclick="expandGraph()" class="px-4 py-2 rounded-lg text-sm font-medium bg-amber-400 hover:bg-amber-500 text-slate-800" title="LLM 多角度联想扩展节点">扩展</button>
         <button onclick="resetZoom()" class="btn-secondary px-4 py-2 rounded-lg text-sm">重置视图</button>
         <button onclick="refreshGraph()" class="btn-primary px-4 py-2 rounded-lg text-sm">刷新</button>
@@ -73,7 +73,7 @@
                 <p class="text-xs font-semibold text-slate-500 mb-2">调试</p>
                 <button onclick="checkExpandedNodes()" class="px-3 py-1.5 rounded text-xs bg-slate-100 hover:bg-slate-200 text-slate-600">检查扩展节点 (API)</button>
                 <p id="debug-result" class="text-xs text-slate-500 mt-2 break-all"></p>
-                <p class="text-xs text-slate-400 mt-1">API 返回 Not Found 时，需启动 DocThinker 后端；或直接在 doc-thinker 目录运行: <code class="text-xs">python scripts/check_graph_storage.py</code></p>
+                <p class="text-xs text-slate-400 mt-1">API 返回 Not Found 时，请先启动后端：<code class="text-xs">python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000</code></p>
             </div>
         </div>
     </div>
@@ -109,69 +109,153 @@ let currentTransform = d3.zoomIdentity;
 let graphData = { nodes: [], links: [] };
 let selectedNode = null;
 let visibleLevels = { 1: true, 2: true, 3: true, expanded: true };
+let currentSessionId = '';
 
 window.onload = initGraph;
-
-function initGraph() {
-    const container = document.getElementById('graph-container');
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    
-    svg = d3.select('#graph-container').append('svg')
-        .attr('width', width).attr('height', height);
-    
-    const zoom = d3.zoom().scaleExtent([0.1, 4]).on('zoom', (e) => {
-        currentTransform = e.transform;
-        g.attr('transform', e.transform);
-    });
-    svg.call(zoom);
-    
-    g = svg.append('g');
-    loadRealData();
-    
-    window.addEventListener('resize', () => {
-        svg.attr('width', container.clientWidth).attr('height', container.clientHeight);
-    });
-}
 
 function getKgApiPrefix() {
     return (window.KG_API_PREFIX || '/api/v1').replace(/\/$/, '');
 }
 
-async function loadRealData() {
+function getStoredSessionId() {
     try {
-        const url = getKgApiPrefix() + '/knowledge-graph/data';
-        console.log('[KG] Fetching:', url);
+        return localStorage.getItem('current_session_id') || '';
+    } catch (_) {
+        return '';
+    }
+}
+
+function setStoredSessionId(sessionId) {
+    try {
+        if (sessionId) {
+            localStorage.setItem('current_session_id', String(sessionId));
+        }
+    } catch (_) {}
+}
+
+async function fetchSessions() {
+    try {
+        const resp = await fetch(getKgApiPrefix() + '/sessions');
+        const data = await resp.json();
+        if (resp.ok && Array.isArray(data.sessions)) {
+            return data.sessions;
+        }
+    } catch (e) {
+        console.warn('Fetch sessions failed:', e);
+    }
+    return [];
+}
+
+function renderSessionSelector(sessions, selectedId) {
+    const selector = document.getElementById('kg-session-selector');
+    if (!selector) return;
+    selector.innerHTML = '';
+
+    const normalizedSelected = selectedId ? String(selectedId) : '';
+    sessions.forEach((session) => {
+        const option = document.createElement('option');
+        option.value = String(session.id);
+        option.textContent = `${session.id} | ${session.title || '新对话'}`;
+        selector.appendChild(option);
+    });
+
+    if (sessions.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '暂无会话';
+        selector.appendChild(option);
+        selector.value = '';
+        return;
+    }
+
+    selector.value = normalizedSelected || String(sessions[0].id);
+}
+
+async function ensureKgSessionReady() {
+    const sessions = await fetchSessions();
+    if (sessions.length === 0) {
+        currentSessionId = '';
+        renderSessionSelector([], '');
+        return;
+    }
+
+    let targetId = getStoredSessionId();
+    if (!targetId || !sessions.find((s) => String(s.id) === String(targetId))) {
+        targetId = String(sessions[0].id);
+    }
+    currentSessionId = String(targetId);
+    setStoredSessionId(currentSessionId);
+    renderSessionSelector(sessions, currentSessionId);
+}
+
+async function handleKgSessionSwitch(sessionId) {
+    const sid = sessionId ? String(sessionId) : '';
+    if (!sid || sid === currentSessionId) return;
+    currentSessionId = sid;
+    setStoredSessionId(currentSessionId);
+    await loadRealData();
+}
+
+async function initGraph() {
+    const container = document.getElementById('graph-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    svg = d3.select('#graph-container').append('svg')
+        .attr('width', width).attr('height', height);
+
+    const zoom = d3.zoom().scaleExtent([0.1, 4]).on('zoom', (e) => {
+        currentTransform = e.transform;
+        g.attr('transform', e.transform);
+    });
+    svg.call(zoom);
+
+    g = svg.append('g');
+    await ensureKgSessionReady();
+    await loadRealData();
+
+    window.addEventListener('resize', () => {
+        svg.attr('width', container.clientWidth).attr('height', container.clientHeight);
+    });
+}
+
+async function loadRealData() {
+    if (!currentSessionId) {
+        document.getElementById('data-source-hint').textContent = ' | 请先创建或选择会话';
+        graphData = { nodes: [], links: [] };
+        renderGraph();
+        return;
+    }
+
+    try {
+        const url = getKgApiPrefix() + '/knowledge-graph/data?session_id=' + encodeURIComponent(currentSessionId);
         const resp = await fetch(url);
         const text = await resp.text();
-        console.log('[KG] Status:', resp.status, 'Length:', text.length, 'CT:', resp.headers.get('content-type'));
         let data;
         try {
             data = JSON.parse(text);
         } catch (parseErr) {
-            if (text && (text.trim().startsWith('<') || text.toLowerCase().includes('<!doctype'))) {
-                throw new Error('服务返回了 HTML 而非 JSON (HTTP ' + resp.status + ')。请确认 Flask UI (5000) 和 FastAPI 后端 (8000) 均已启动。');
-            }
-            throw new Error('JSON 解析失败: ' + parseErr.message + ' (HTTP ' + resp.status + ', 前100字符: ' + text.slice(0, 100) + ')');
+            throw new Error('JSON parse failed: ' + parseErr.message + ' (HTTP ' + resp.status + ')');
         }
+
         const meta = data.metadata || {};
-        if (meta.error || meta.hint) {
-            document.getElementById('data-source-hint').textContent = ' (全局图谱) | ' + (meta.hint || meta.error);
+        if (!resp.ok || meta.error || meta.hint) {
+            document.getElementById('data-source-hint').textContent = ` | 会话 ${currentSessionId} | ` + (meta.hint || meta.error || ('HTTP ' + resp.status));
             graphData = { nodes: [], links: [] };
             renderGraph();
             return;
         }
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
         const expandedCount = (data.nodes || []).filter(n => n.is_expanded === true || n.is_expanded === 1 || n.is_expanded === '1' || n.color === '#FFD700').length;
         const backendExpanded = meta.expanded_in_response != null ? meta.expanded_in_response : expandedCount;
         const totalNodes = meta.total_nodes ?? (data.nodes?.length || 0);
-        let hint = ' (全局图谱) | ' + totalNodes + ' 节点';
-        if (meta.nodes_returned && meta.nodes_returned !== totalNodes) hint += ' (展示' + meta.nodes_returned + ')';
-        hint += ', ' + expandedCount + ' 扩展';
+        let hint = ` | 会话 ${currentSessionId} | ${totalNodes} 节点`;
+        if (meta.nodes_returned && meta.nodes_returned !== totalNodes) hint += ` (显示${meta.nodes_returned})`;
+        hint += `, ${expandedCount} 扩展`;
         if (meta.graph_file) hint += ' [' + (meta.graph_file.split(/[/\\]/).pop() || meta.graph_file) + ']';
-        if (backendExpanded !== expandedCount) hint += ' [后端:' + backendExpanded + ']';
+        if (backendExpanded !== expandedCount) hint += ` [后端:${backendExpanded}]`;
         document.getElementById('data-source-hint').textContent = hint;
-        document.getElementById('switch-global-btn').classList.add('hidden');
+
         if (data.nodes && data.nodes.length > 0) {
             const levelMap = { 'field': 3, 'domain': 3, 'concept': 2, 'method': 2, 'artifact': 1, 'data': 1, 'person': 1, 'event': 1, 'location': 1, 'organization': 1, 'content': 1, 'naturalobject': 1 };
             graphData = {
@@ -200,87 +284,62 @@ async function loadRealData() {
             renderGraph();
             return;
         }
-        document.getElementById('data-source-hint').textContent = ' (全局图谱) | 暂无节点，请先上传文档或批处理入库';
+
+        document.getElementById('data-source-hint').textContent = ` | 会话 ${currentSessionId} | 暂无节点`;
         graphData = { nodes: [], links: [] };
         renderGraph();
     } catch (e) {
         console.warn('Failed to load real data:', e);
-        document.getElementById('data-source-hint').textContent = ' (全局图谱) | 加载失败: ' + (e.message || e) + '。请确认后端已启动 (port 8000)';
+        document.getElementById('data-source-hint').textContent = ` | 会话 ${currentSessionId} | 加载失败: ` + (e.message || e);
         graphData = { nodes: [], links: [] };
         renderGraph();
     }
 }
 
-function useDemoData() {
-    graphData = {
-        nodes: [
-            { id: 'AI', name: '人工智能', level: 3, connections: ['ML', 'NLP', 'CV'] },
-            { id: 'ML', name: '机器学习', level: 2, connections: ['DL', 'NN', 'AI'] },
-            { id: 'DL', name: '深度学习', level: 2, connections: ['CNN', 'RNN', 'Transformer', 'ML'] },
-            { id: 'NN', name: '神经网络', level: 2, connections: ['CNN', 'RNN', 'ML'] },
-            { id: 'CNN', name: 'CNN', level: 1, connections: ['DL', 'NN'] },
-            { id: 'RNN', name: 'RNN', level: 1, connections: ['DL', 'NN'] },
-            { id: 'Transformer', name: 'Transformer', level: 1, connections: ['DL', 'LLM'] },
-            { id: 'LLM', name: '大语言模型', level: 1, connections: ['Transformer', 'NLP'] },
-            { id: 'NLP', name: 'NLP', level: 2, connections: ['LLM', 'AI'] },
-            { id: 'CV', name: '计算机视觉', level: 2, connections: ['CNN', 'AI'] },
-        ],
-        links: [
-            { source: 'AI', target: 'ML' }, { source: 'AI', target: 'NLP' }, { source: 'AI', target: 'CV' },
-            { source: 'ML', target: 'DL' }, { source: 'ML', target: 'NN' },
-            { source: 'DL', target: 'CNN' }, { source: 'DL', target: 'RNN' }, { source: 'DL', target: 'Transformer' },
-            { source: 'NN', target: 'CNN' }, { source: 'NN', target: 'RNN' },
-            { source: 'Transformer', target: 'LLM' },
-            { source: 'NLP', target: 'LLM' },
-        ]
-    };
-    renderGraph();
-}
-
 function renderGraph() {
     g.selectAll('*').remove();
-    
+
     const isExpanded = n => !!(n.is_expanded || n.is_expanded === 1 || n.is_expanded === '1' || n.color === '#FFD700');
     const visibleNodes = graphData.nodes.filter(n => {
         if (isExpanded(n)) return !!visibleLevels.expanded;
         return !!visibleLevels[n.level];
     });
     const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
-    const visibleLinks = graphData.links.filter(l => 
-        visibleNodeIds.has(typeof l.source === 'object' ? l.source.id : l.source) && 
+    const visibleLinks = graphData.links.filter(l =>
+        visibleNodeIds.has(typeof l.source === 'object' ? l.source.id : l.source) &&
         visibleNodeIds.has(typeof l.target === 'object' ? l.target.id : l.target)
     );
-    
+
     const container = document.getElementById('graph-container');
     const width = container.clientWidth;
     const height = container.clientHeight;
-    
+
     simulation = d3.forceSimulation(visibleNodes)
         .force('link', d3.forceLink(visibleLinks).id(d => d.id).distance(100))
         .force('charge', d3.forceManyBody().strength(-300))
         .force('center', d3.forceCenter(width / 2, height / 2));
-    
+
     link = g.append('g').selectAll('line').data(visibleLinks)
         .enter().append('line').attr('class', 'link').attr('stroke-width', 1.5);
-    
+
     node = g.append('g').selectAll('g').data(visibleNodes)
         .enter().append('g').attr('class', 'node')
         .call(d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended))
         .on('click', (e, d) => selectNode(d));
-    
+
     node.append('circle')
         .attr('r', d => 10 + d.level * 5)
         .attr('class', d => isExpanded(d) ? 'level-expanded' : `level-${d.level}`)
         .attr('fill', d => isExpanded(d) ? '#FFD700' : null)
         .attr('stroke', d => isExpanded(d) ? '#B8860B' : null)
         .attr('stroke-width', d => isExpanded(d) ? 2 : 0);
-    
+
     label = g.append('g').selectAll('text').data(visibleNodes)
         .enter().append('text').attr('class', 'node-label')
         .attr('dy', d => 25 + d.level * 5)
         .attr('text-anchor', 'middle')
         .text(d => d.name);
-    
+
     simulation.on('tick', () => {
         link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
             .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
@@ -307,7 +366,7 @@ function focusNode() {
     const container = document.getElementById('graph-container');
     svg.transition().duration(750).call(
         d3.zoom().transform,
-        d3.zoomIdentity.translate(container.clientWidth/2, container.clientHeight/2).scale(1.5)
+        d3.zoomIdentity.translate(container.clientWidth / 2, container.clientHeight / 2).scale(1.5)
             .translate(-selectedNode.x, -selectedNode.y)
     );
 }
@@ -344,53 +403,53 @@ function refreshGraph() {
 
 async function checkExpandedNodes() {
     const el = document.getElementById('debug-result');
+    if (!currentSessionId) {
+        el.textContent = '请先选择会话';
+        return;
+    }
     el.textContent = '检查中...';
     try {
         const prefix = getKgApiPrefix();
-        const url = prefix + '/knowledge-graph/debug-expanded';
+        const url = prefix + '/knowledge-graph/debug-expanded?session_id=' + encodeURIComponent(currentSessionId);
         const resp = await fetch(url);
         const data = await resp.json().catch(() => ({}));
         if (data.expanded_count !== undefined) {
             el.textContent = `总节点: ${data.total_nodes || 0}, 扩展节点: ${data.expanded_count}。${data.storage_info?.graph_file ? ' 文件: ' + data.storage_info.graph_file : ''}`;
-            if (data.expanded_count === 0 && (data.total_nodes || 0) > 0) {
-                el.textContent += ' (扩展节点未写入。可点击「扩展」生成)';
-            }
         } else {
             const err = data.detail || data.error || (resp.status ? 'HTTP ' + resp.status : '') || '请求失败';
-            let msg = err;
-            if (resp.status === 404) msg += '（知识图谱调试接口需 DocThinker 后端，非 NeuroAgent）';
-            if (resp.status === 0) msg += '。请确认后端已启动: python -m uvicorn docthinker.server.app:app --port 8000';
-            el.textContent = msg + '。可在 doc-thinker 目录运行: python scripts/check_graph_storage.py 直接检查图谱文件';
+            el.textContent = err;
         }
     } catch (e) {
-        el.textContent = '错误: ' + e.message + '。可在 doc-thinker 目录运行: python scripts/check_graph_storage.py';
+        el.textContent = '错误: ' + e.message;
     }
 }
 
 async function expandGraph() {
     const btn = document.getElementById('expand-btn');
     if (btn.disabled) return;
+    if (!currentSessionId) {
+        showToast('请先选择会话', 'warning');
+        return;
+    }
     btn.disabled = true;
     btn.textContent = '扩展中...';
     try {
         const resp = await fetch(getKgApiPrefix() + '/knowledge-graph/expand', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apply: true, angle_indices: [0, 1, 5] })
+            body: JSON.stringify({ session_id: currentSessionId, apply: true, angle_indices: [0, 1, 5] })
         });
         const data = await resp.json().catch(() => ({}));
         if (data.success) {
             const n = (data.added || []).length;
-            showToast('扩展完成！新增 ' + n + ' 个节点（黄色显示）', 'success');
+            showToast('扩展完成，新增 ' + n + ' 个节点', 'success');
             loadRealData();
         } else {
-            const msg = data.detail || data.error || (resp.status === 503 ? '后端未启动，请先运行: python -m uvicorn docthinker.server.app:app --host 0.0.0.0 --port 8000' : '未知错误');
-            console.error('扩展失败', resp.status, data);
+            const msg = data.detail || data.error || '未知错误';
             showToast('扩展失败: ' + msg, 'error');
         }
     } catch (err) {
-        console.error('扩展请求异常', err);
-        showToast('扩展请求失败: ' + err.message + '（请确认后端 8000 已启动）', 'error');
+        showToast('扩展请求失败: ' + err.message, 'error');
     }
     btn.disabled = false;
     btn.textContent = '扩展';
@@ -401,3 +460,4 @@ function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
 function dragended(e, d) { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
 </script>
 {% endblock %}
+

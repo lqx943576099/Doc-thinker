@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional, Any, Dict, List, Tuple
 import json
 import tempfile
@@ -12,6 +13,22 @@ from ..state import state
 
 
 router = APIRouter()
+
+FAST_QA_TIMEOUT_SECONDS = 25
+SESSION_QUERY_TIMEOUT_SECONDS = 90
+FALLBACK_LLM_TIMEOUT_SECONDS = 30
+
+
+def _looks_like_file_question(question: str) -> bool:
+    q = (question or "").strip().lower()
+    if not q:
+        return False
+    file_keywords = [
+        "文件", "文档", "上传", "附件", "资料", "本文", "这篇", "这份", "内容", "总结", "概括",
+        "图片", "图中", "图里", "这张图", "表格", "pdf",
+        "file", "document", "attachment", "uploaded", "summarize", "this doc", "this file",
+    ]
+    return any(k in q for k in file_keywords)
 
 
 def _format_thinking_process(details: Any, meta: Dict[str, Any]) -> str:
@@ -35,7 +52,7 @@ def _format_thinking_process(details: Any, meta: Dict[str, Any]) -> str:
             lines.append(f"页码范围: {lookup_range}")
     sub_plan = details.get("sub_plan")
     if isinstance(sub_plan, dict):
-        lines.append("子问题计划:")
+        lines.append("子问题计划")
         for item in sub_plan.get("sub_questions", []) or []:
             if isinstance(item, dict):
                 qid = item.get("id") or ""
@@ -47,7 +64,7 @@ def _format_thinking_process(details: Any, meta: Dict[str, Any]) -> str:
                 lines.append(text)
     sub_answers = details.get("sub_answers")
     if isinstance(sub_answers, list) and sub_answers:
-        lines.append("子问题答案:")
+        lines.append("子问题回答")
         for ans in sub_answers:
             if not isinstance(ans, dict):
                 continue
@@ -81,7 +98,7 @@ def _format_thinking_process(details: Any, meta: Dict[str, Any]) -> str:
         summary = final_synthesis.get("summary") or final_synthesis.get("final_answer")
         confidence = final_synthesis.get("confidence")
         if summary:
-            lines.append("最终合成:")
+            lines.append("最终合成")
             lines.append(str(summary))
         if isinstance(confidence, (int, float)):
             lines.append(f"合成置信度: {confidence:.2f}")
@@ -288,6 +305,26 @@ async def _try_fast_qa(request: QueryRequest) -> Tuple[Optional[str], Optional[D
     return answer, {"fast_qa": True, "file": file_path.name}
 
 
+async def _get_session_rag_or_raise(session_id: Optional[str]):
+    if not session_id:
+        raise HTTPException(
+            status_code=400,
+            detail="session_id is required; global knowledge is disabled",
+        )
+    if not state.rag_instance or not state.session_manager:
+        raise HTTPException(status_code=500, detail="Service not initialized")
+
+    config = state.rag_instance.config
+    graphcore_kwargs = getattr(state.rag_instance, "graphcore_kwargs", {})
+    session_rag = state.session_manager.get_session_rag(
+        session_id, config, graphcore_kwargs
+    )
+    session_rag.llm_model_func = state.rag_instance.llm_model_func
+    session_rag.embedding_func = state.rag_instance.embedding_func
+    await session_rag._ensure_graphcore_initialized()
+    return session_rag
+
+
 async def _ingest_chat_turn(
     question: str,
     answer: str,
@@ -312,7 +349,7 @@ async def _ingest_chat_turn(
             )
         except Exception:
             insight = None
-    if insight and state.rag_instance:
+    if insight:
         metadata = {
             "summary": insight.summary,
             "reasoning": insight.reasoning,
@@ -324,15 +361,6 @@ async def _ingest_chat_turn(
             "hypotheses": insight.hypotheses,
             "action_items": insight.action_items,
         }
-        try:
-            state.rag_instance.add_cognitive_memory(
-                text=base_text,
-                metadata=metadata,
-                source_type="chat",
-                session_id=session_id,
-            )
-        except Exception:
-            pass
         if state.memory_engine:
             try:
                 relation_triples = []
@@ -351,7 +379,11 @@ async def _ingest_chat_turn(
                 )
             except Exception:
                 pass
-    await state.ingestion_service.ingest_text(text_to_ingest, session_id=session_id)
+    if session_id:
+        try:
+            await state.ingestion_service.ingest_text(text_to_ingest, session_id=session_id)
+        except Exception:
+            pass
 
 
 @router.post("/query")
@@ -359,6 +391,13 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
     print(f"DEBUG: Received query: {request.question}, session_id: {request.session_id}")
     if not state.rag_instance or not state.session_manager:
         raise HTTPException(status_code=500, detail="Service not initialized")
+    if not request.session_id:
+        raise HTTPException(
+            status_code=400,
+            detail="session_id is required; global knowledge is disabled",
+        )
+    session_rag = await _get_session_rag_or_raise(request.session_id)
+    effective_memory_mode = "session"
 
     # 1. Simple Intent Check (Identity/Greeting)
     identity_keywords = ["你是谁", "who are you", "your name", "介绍一下自己", "你好", "hello", "hi"]
@@ -379,34 +418,44 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
         # 2. Fast Path for Identity Questions
         if is_identity_query:
             # ... (keep existing identity logic)
-            system_prompt = "你是一个由 WhiteCat 团队开发的智能知识与内容系统，旨在帮助用户管理和理解海量文档与信息。你可以进行知识检索与对比分析、结构化梳理、多模态理解以及沉淀个人记忆。"
+            system_prompt = ("你是由 WhiteCat 团队开发的智能知识与内容系统，用于帮助用户管理和理解文档信息，并进行检索、对比和结构化分析。")
             llm_resp = await state.rag_instance.llm_model_func(f"{system_prompt}\n\nUser: {request.question}\nAssistant:")
-            answer = llm_resp if llm_resp else "抱歉，我目前无法回答这个问题。"
-        elif request.session_id:
-            fast_answer, fast_meta = await _try_fast_qa(request)
+            answer = llm_resp if llm_resp else "抱歉，我暂时无法回答这个问题。"
+        elif request.session_id and _looks_like_file_question(request.question):
+            try:
+                fast_answer, fast_meta = await asyncio.wait_for(
+                    _try_fast_qa(request), timeout=FAST_QA_TIMEOUT_SECONDS
+                )
+            except asyncio.TimeoutError:
+                fast_answer, fast_meta = None, None
             if fast_answer:
                 answer = fast_answer
                 answer_mode = "fast_qa"
-                thinking_process = "快问答"
+                thinking_process = "快问快答"
                 sources = [{"content": f"文档: {fast_meta.get('file', '')}", "confidence": 0.6}] if fast_meta else []
         
-        if not answer and request.enable_thinking and state.orchestrator:
-            print(f"DEBUG: Using Auto-Thinking Orchestrator for query: {request.question}")
-            rag_kwargs: Dict[str, Any] = {"mode": request.mode, "enable_rerank": request.enable_rerank}
+        if not answer and request.enable_thinking:
+            print(f"DEBUG: Using session-only thinking mode for query: {request.question}")
             context_prefix = ""
+            analogies: List[Tuple[Any, float, Optional[str]]] = []
             if state.memory_engine:
                 try:
                     analogies = await state.memory_engine.retrieve_analogies(
                         request.question, top_k=5, then_spread=True, spread_top_k=3
                     )
+                    analogies = [
+                        item
+                        for item in analogies
+                        if getattr(item[0], "session_id", None) == request.session_id
+                    ]
                     if analogies:
-                        lines = ["[类比记忆] 与当前问题可能相关的历史经历:"]
+                        lines = ["[Session Memory] 与当前问题相关的历史片段:"]
                         for ep, score, hint in analogies[:5]:
                             lines.append(f"- {ep.summary[:200]}...")
                             if hint:
                                 lines.append(f"  关联: {hint}")
                         context_prefix += "\n".join(lines) + "\n\n"
-                        # 神经可塑性：共激活建连 — episode 与 episode 中实体的共现
+                        # 神经可塑性：记录 episode 与 episode 实体的共激活关系
                         ep_ids = [ep.episode_id for ep, _, _ in analogies]
                         kg_ids = getattr(state, "kg_entity_ids", set())
                         ent_ids = []
@@ -420,145 +469,72 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
                                 pass
                 except Exception:
                     pass
-            if request.session_id and request.memory_mode in {"session", "hybrid"}:
+            session_result = ""
+            try:
+                session_result = await asyncio.wait_for(
+                    session_rag.aquery(
+                        query=request.question,
+                        mode=request.mode,
+                        enable_rerank=request.enable_rerank,
+                    ),
+                    timeout=SESSION_QUERY_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
                 session_result = ""
-                try:
-                    config = state.rag_instance.config
-                    graphcore_kwargs = state.rag_instance.graphcore_kwargs
-                    session_rag = state.session_manager.get_session_rag(request.session_id, config, graphcore_kwargs)
-                    session_rag.llm_model_func = state.rag_instance.llm_model_func
-                    session_rag.embedding_func = state.rag_instance.embedding_func
-                    await session_rag._ensure_graphcore_initialized()
-                    session_result = await session_rag.aquery(
-                        query=request.question,
-                        mode=request.mode,
-                        enable_rerank=request.enable_rerank,
-                    )
-                except Exception:
-                    session_result = ""
-                if request.memory_mode == "hybrid":
-                    global_result = await state.rag_instance.aquery(
-                        query=request.question,
-                        mode=request.mode,
-                        enable_rerank=request.enable_rerank,
-                    )
-                    context_prefix = (
-                        "[Session Context]\n"
-                        f"{session_result}\n\n"
-                        "[Global Context]\n"
-                        f"{global_result}\n\n"
-                    )
-                else:
-                    context_prefix = f"[Session Context]\n{session_result}\n\n"
+            except Exception:
+                session_result = ""
+            context_prefix += f"[Session Context]\n{session_result}\n\n"
             if request.retrieval_instruction:
                 context_prefix += f"[Retrieval Instruction]\n{request.retrieval_instruction}\n\n"
-            work_query = f"{context_prefix}[User Question]\n{request.question}" if context_prefix else request.question
-
-            result = await state.orchestrator.query(
-                work_query,
-                rag_kwargs=rag_kwargs
-            )
-            answer = result.get("answer", "")
-            details = result.get("details", {})
+            answer = session_result
+            answer_mode = "session_thinking"
+            thinking_details = {
+                "memory_hits": len(analogies),
+                "mode": request.mode,
+            }
             thinking_process = _format_thinking_process(
-                details,
+                thinking_details,
                 {
-                    "memory_mode": request.memory_mode,
+                    "memory_mode": effective_memory_mode,
                     "retrieval_instruction": request.retrieval_instruction,
                 },
             )
-            sources = _build_sources_from_details(details, result.get("evidence"))
+            if hasattr(session_rag, "get_last_query_evidence"):
+                sources = _build_sources_from_details({}, session_rag.get_last_query_evidence())
 
-        # 3. Hybrid/Session/Global RAG Logic
-        elif not answer and request.session_id and request.memory_mode == "hybrid":
-            # ... (keep existing logic but handle None)
-            session_result = ""
+        # 3. Session-only RAG Logic (no global sharing)
+        elif not answer:
             try:
-                config = state.rag_instance.config
-                graphcore_kwargs = state.rag_instance.graphcore_kwargs
-                session_rag = state.session_manager.get_session_rag(request.session_id, config, graphcore_kwargs)
-                session_rag.llm_model_func = state.rag_instance.llm_model_func
-                session_rag.embedding_func = state.rag_instance.embedding_func
-                await session_rag._ensure_graphcore_initialized()
-                session_result = await session_rag.aquery(
-                    query=request.question,
-                    mode=request.mode,
-                    enable_rerank=request.enable_rerank,
-                )
-            except Exception:
-                session_result = "(No session context available)"
-
-            global_result = await state.rag_instance.aquery(
-                query=request.question,
-                mode=request.mode,
-                enable_rerank=request.enable_rerank,
-            )
-
-            instruction_text = ""
-            if request.retrieval_instruction:
-                instruction_text = f"\nUSER INSTRUCTION FOR MERGING: {request.retrieval_instruction}\n"
-
-            merge_prompt = f"""
-You are an intelligent assistant with access to two knowledge sources:
-
-[Session Context (Current Conversation Files)]:
-{session_result}
-
-[Global Knowledge Base (Historical/All Files)]:
-{global_result}
-
-Please synthesize a comprehensive answer to the user's question: "{request.question}"
-
-{instruction_text}
-
-Default Policy: Prioritize the Session Context for specific details about current files, but use Global Knowledge to provide broader context or connections if relevant.
-If the User Instruction conflicts with the Default Policy, follow the User Instruction.
-"""
-            llm_resp = await state.rag_instance.llm_model_func(merge_prompt)
-            answer = llm_resp if llm_resp else ""
-
-        elif not answer and request.session_id and request.memory_mode == "session":
-            session_rag = None
-            try:
-                config = state.rag_instance.config
-                graphcore_kwargs = state.rag_instance.graphcore_kwargs
-                session_rag = state.session_manager.get_session_rag(request.session_id, config, graphcore_kwargs)
-                session_rag.llm_model_func = state.rag_instance.llm_model_func
-                session_rag.embedding_func = state.rag_instance.embedding_func
-                await session_rag._ensure_graphcore_initialized()
-                target_rag = session_rag
-            except Exception:
-                target_rag = state.rag_instance
-            answer = await target_rag.aquery(
-                query=request.question,
-                mode=request.mode,
-                enable_rerank=request.enable_rerank,
-            )
-            if session_rag is not None and target_rag is session_rag:
-                negative_responses = ["i don't know", "不知道", "没有找到", "sorry", "抱歉", "无法回答"]
-                if not answer or any(n in (answer or "").lower() for n in negative_responses):
-                    fallback_answer = await state.rag_instance.aquery(
+                answer = await asyncio.wait_for(
+                    session_rag.aquery(
                         query=request.question,
                         mode=request.mode,
                         enable_rerank=request.enable_rerank,
-                    )
-                    if fallback_answer:
-                        answer = fallback_answer
-        elif not answer:
-            answer = await state.rag_instance.aquery(
-                query=request.question,
-                mode=request.mode,
-                enable_rerank=request.enable_rerank,
-            )
+                    ),
+                    timeout=SESSION_QUERY_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                answer = ""
 
         # 4. Fallback if RAG returns nothing useful
         if not answer:
             answer = "抱歉，我未能找到相关信息。"
-            
+
         negative_responses = ["i don't know", "不知道", "没有找到", "sorry", "抱歉", "无法回答"]
         if not is_identity_query and any(n in (answer or "").lower() for n in negative_responses) and len(answer or "") < 100:
-            fallback_prompt = f"用户提出了一个问题：'{request.question}'。RAG 系统未能从文档中找到相关信息。请作为通用助手，基于你的基础知识给出一个友好的回答。如果确实不知道，请如实告知并建议用户补充文档。"
-            llm_resp = await state.rag_instance.llm_model_func(fallback_prompt)
+            fallback_prompt = (
+                f"用户提出了问题：'{request.question}'。"
+                "RAG 未从文档中检索到足够信息。请作为通用助手给出清晰回答；"
+                "如果确实无法确定，请明确说明并建议补充文档。"
+            )
+            llm_resp = None
+            try:
+                llm_resp = await asyncio.wait_for(
+                    state.rag_instance.llm_model_func(fallback_prompt),
+                    timeout=FALLBACK_LLM_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                llm_resp = None
             if llm_resp:
                 answer = llm_resp
 
@@ -577,8 +553,8 @@ If the User Instruction conflicts with the Default Policy, follow the User Instr
             chat_turn_ts,
         )
 
-        if not sources and hasattr(state.rag_instance, "get_last_query_evidence"):
-            evidence = state.rag_instance.get_last_query_evidence()
+        if not sources and hasattr(session_rag, "get_last_query_evidence"):
+            evidence = session_rag.get_last_query_evidence()
             sources = _build_sources_from_details({}, evidence)
 
         return {
@@ -586,7 +562,7 @@ If the User Instruction conflicts with the Default Policy, follow the User Instr
             "query": request.question,
             "mode": request.mode,
             "session_id": request.session_id,
-            "memory_mode": request.memory_mode,
+            "memory_mode": effective_memory_mode,
             "thinking_process": thinking_process,
             "sources": sources,
             "answer_mode": answer_mode
@@ -596,7 +572,7 @@ If the User Instruction conflicts with the Default Policy, follow the User Instr
         if "401" in err_msg or "api_key" in err_msg or "authentication" in err_msg:
             raise HTTPException(
                 status_code=401, 
-                detail="API 密钥配置错误或失效。请检查环境变量 LLM_BINDING_API_KEY。"
+                detail="API key 配置错误或失效，请检查环境变量 LLM_BINDING_API_KEY。"
             )
         elif "403" in err_msg:
             raise HTTPException(status_code=403, detail="API 访问被拒绝，请检查权限。")
@@ -613,8 +589,9 @@ async def query_text(request: QueryRequest, background_tasks: BackgroundTasks):
 async def query_multi_document(request: MultiDocumentQueryRequest):
     if not state.rag_instance:
         raise HTTPException(status_code=500, detail="Service not initialized")
+    session_rag = await _get_session_rag_or_raise(request.session_id)
     try:
-        result = await state.rag_instance.aquery_multi_document_enhanced(
+        result = await session_rag.aquery_multi_document_enhanced(
             query=request.question,
             mode=request.mode,
             enable_rerank=request.enable_rerank,
@@ -628,3 +605,5 @@ async def query_multi_document(request: MultiDocumentQueryRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+

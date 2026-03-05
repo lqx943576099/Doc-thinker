@@ -9,6 +9,27 @@ from ..state import state
 router = APIRouter()
 
 
+async def _get_session_rag_or_raise(session_id: Optional[str]):
+    if not state.rag_instance or not state.session_manager:
+        raise HTTPException(status_code=500, detail="Service not initialized")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    try:
+        config = state.rag_instance.config
+        graphcore_kwargs = getattr(state.rag_instance, "graphcore_kwargs", {})
+        session_rag = state.session_manager.get_session_rag(
+            session_id, config, graphcore_kwargs
+        )
+        session_rag.llm_model_func = state.rag_instance.llm_model_func
+        session_rag.embedding_func = state.rag_instance.embedding_func
+        await session_rag._ensure_graphcore_initialized()
+        return session_rag
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Session not found: {e}")
+
+
 @router.post("/config")
 async def update_config(payload: Dict[str, Any] = Body(...)):
     """Update system configuration"""
@@ -71,31 +92,20 @@ async def update_config(payload: Dict[str, Any] = Body(...)):
 
 @router.get("/knowledge-graph/stats-all")
 async def get_all_graph_stats():
-    """
-    返回全局及各会话的图谱节点数，用于诊断「只有 9 节点」问题。
-    若文档在会话中上传，节点在对应 session 的图谱中；全局与各 session 分离存储。
-    """
+    """Return node/edge counts for all session graphs."""
     if not state.rag_instance or not state.session_manager:
         raise HTTPException(status_code=500, detail="Service not initialized")
-    result: Dict[str, Any] = {"global": {"nodes": 0, "edges": 0}, "sessions": {}}
-    try:
-        G = state.rag_instance.graphcore.chunk_entity_relation_graph
-        await state.rag_instance._ensure_graphcore_initialized()
-        nd = await G.get_all_nodes()
-        ed = await G.get_all_edges()
-        result["global"]["nodes"] = len(nd)
-        result["global"]["edges"] = len(ed)
-        if hasattr(G, "_graphml_xml_file"):
-            result["global"]["path"] = str(getattr(G, "_graphml_xml_file", ""))
-    except Exception as e:
-        result["global"]["error"] = str(e)
+    result: Dict[str, Any] = {"sessions": {}}
     for s in state.session_manager.list_sessions():
         sid = s.get("id")
         if not sid:
             continue
         try:
             config = state.rag_instance.config
-            session_rag = state.session_manager.get_session_rag(sid, config)
+            graphcore_kwargs = getattr(state.rag_instance, "graphcore_kwargs", {})
+            session_rag = state.session_manager.get_session_rag(sid, config, graphcore_kwargs)
+            session_rag.llm_model_func = state.rag_instance.llm_model_func
+            session_rag.embedding_func = state.rag_instance.embedding_func
             await session_rag._ensure_graphcore_initialized()
             SG = session_rag.graphcore.chunk_entity_relation_graph
             snd = await SG.get_all_nodes()
@@ -103,10 +113,12 @@ async def get_all_graph_stats():
             result["sessions"][sid] = {
                 "nodes": len(snd),
                 "edges": len(sed),
-                "title": s.get("title", "未知"),
+                "title": s.get("title", "unknown"),
             }
+            if hasattr(SG, "_graphml_xml_file"):
+                result["sessions"][sid]["path"] = str(getattr(SG, "_graphml_xml_file", ""))
         except Exception as e:
-            result["sessions"][sid] = {"error": str(e), "title": s.get("title", "未知")}
+            result["sessions"][sid] = {"error": str(e), "title": s.get("title", "unknown")}
     return result
 
 
@@ -115,17 +127,18 @@ async def get_graph_data(session_id: Optional[str] = None):
     if not state.rag_instance or not state.session_manager:
         raise HTTPException(status_code=500, detail="Service not initialized")
 
-    target_rag = state.rag_instance
-    if session_id:
-        try:
-            config = state.rag_instance.config
-            session_rag = state.session_manager.get_session_rag(session_id, config)
-            session_rag.llm_model_func = state.rag_instance.llm_model_func
-            session_rag.embedding_func = state.rag_instance.embedding_func
-            await session_rag._ensure_graphcore_initialized()
-            target_rag = session_rag
-        except Exception as e:
-            raise HTTPException(status_code=404, detail=f"Session graph not found: {e}")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    try:
+        config = state.rag_instance.config
+        graphcore_kwargs = getattr(state.rag_instance, "graphcore_kwargs", {})
+        session_rag = state.session_manager.get_session_rag(session_id, config, graphcore_kwargs)
+        session_rag.llm_model_func = state.rag_instance.llm_model_func
+        session_rag.embedding_func = state.rag_instance.embedding_func
+        await session_rag._ensure_graphcore_initialized()
+        target_rag = session_rag
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Session graph not found: {e}")
 
     try:
         if not target_rag.graphcore:
@@ -136,7 +149,7 @@ async def get_graph_data(session_id: Optional[str] = None):
 
         nodes = []
         edges = []
-        max_nodes = 1000  # 提高上限以支持 500+ 节点图谱，之前 250 会截断
+        max_nodes = 1000  # 提高上限，支持 500+ 节点图谱
         # 优先保留扩展节点（黄色）：is_expanded=1 或 source_id=llm_expansion
         def _is_expanded(n: dict) -> bool:
             ie = n.get("is_expanded")
@@ -201,31 +214,26 @@ async def get_graph_data(session_id: Optional[str] = None):
 
 @router.post("/knowledge-graph/expand")
 async def expand_knowledge_graph(payload: Dict[str, Any] = Body(default={})):
-    """
-    知识图谱 LLM 扩展：多角度联想生成新节点。
-    payload: { session_id?, angle_indices?, apply? }
-    - angle_indices: 使用的角度索引 [0..6]，默认 [0,1,5]（上位、下位、应用场景）
-    - apply: 是否将新节点写入图谱，否则仅返回建议
-    """
+    """Expand a session knowledge graph with LLM-generated candidate nodes."""
     session_id = payload.get("session_id")
     angle_indices = payload.get("angle_indices")
     apply = payload.get("apply", True)
-    if not state.rag_instance:
+    if not state.rag_instance or not state.session_manager:
         raise HTTPException(status_code=500, detail="Service not initialized")
-    target_rag = state.rag_instance
-    if session_id:
-        try:
-            config = state.rag_instance.config
-            graphcore_kwargs = getattr(state.rag_instance, "graphcore_kwargs", {})
-            session_rag = state.session_manager.get_session_rag(
-                session_id, config, graphcore_kwargs
-            )
-            session_rag.llm_model_func = state.rag_instance.llm_model_func
-            session_rag.embedding_func = state.rag_instance.embedding_func
-            await session_rag._ensure_graphcore_initialized()
-            target_rag = session_rag
-        except Exception as e:
-            raise HTTPException(status_code=404, detail=f"Session not found: {e}")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    try:
+        config = state.rag_instance.config
+        graphcore_kwargs = getattr(state.rag_instance, "graphcore_kwargs", {})
+        session_rag = state.session_manager.get_session_rag(
+            session_id, config, graphcore_kwargs
+        )
+        session_rag.llm_model_func = state.rag_instance.llm_model_func
+        session_rag.embedding_func = state.rag_instance.embedding_func
+        await session_rag._ensure_graphcore_initialized()
+        target_rag = session_rag
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Session not found: {e}")
     try:
         if not target_rag.graphcore:
             await target_rag._ensure_graphcore_initialized()
@@ -261,32 +269,29 @@ async def expand_knowledge_graph(payload: Dict[str, Any] = Body(default={})):
         return {"success": True, **result}
     except Exception as e:
         err = str(e)
-        raise HTTPException(status_code=500, detail=err or "扩展执行失败")
+        raise HTTPException(status_code=500, detail=err or "Expansion failed")
 
 
 @router.get("/knowledge-graph/debug-expanded")
 async def debug_expanded_nodes(session_id: Optional[str] = None):
-    """
-    调试接口：验证 LLM 扩展节点是否真正写入图谱。
-    返回 source_id=llm_expansion 的节点数量及部分示例，用于排查扩展后不显示黄色节点的问题。
-    """
+    """Return diagnostics for expanded nodes in a session graph."""
     if not state.rag_instance or not state.session_manager:
         raise HTTPException(status_code=500, detail="Service not initialized")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
 
-    target_rag = state.rag_instance
-    if session_id:
-        try:
-            config = state.rag_instance.config
-            graphcore_kwargs = getattr(state.rag_instance, "graphcore_kwargs", {})
-            session_rag = state.session_manager.get_session_rag(
-                session_id, config, graphcore_kwargs
-            )
-            session_rag.llm_model_func = state.rag_instance.llm_model_func
-            session_rag.embedding_func = state.rag_instance.embedding_func
-            await session_rag._ensure_graphcore_initialized()
-            target_rag = session_rag
-        except Exception as e:
-            raise HTTPException(status_code=404, detail=f"Session not found: {e}")
+    try:
+        config = state.rag_instance.config
+        graphcore_kwargs = getattr(state.rag_instance, "graphcore_kwargs", {})
+        session_rag = state.session_manager.get_session_rag(
+            session_id, config, graphcore_kwargs
+        )
+        session_rag.llm_model_func = state.rag_instance.llm_model_func
+        session_rag.embedding_func = state.rag_instance.embedding_func
+        await session_rag._ensure_graphcore_initialized()
+        target_rag = session_rag
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Session not found: {e}")
 
     try:
         if not target_rag.graphcore:
@@ -323,16 +328,30 @@ async def debug_expanded_nodes(session_id: Optional[str] = None):
 
 
 @router.get("/knowledge-graph/stats")
-async def get_knowledge_graph_stats():
-    if not state.rag_instance:
-        raise HTTPException(status_code=500, detail="Service not initialized")
+async def get_knowledge_graph_stats(session_id: Optional[str] = None):
+    target_rag = await _get_session_rag_or_raise(session_id)
     try:
-        kg = state.rag_instance.knowledge_graph
+        G = target_rag.graphcore.chunk_entity_relation_graph
+        nodes_data = await G.get_all_nodes()
+        edges_data = await G.get_all_edges()
+        entity_types = sorted(
+            {
+                str(n.get("entity_type") or "unknown")
+                for n in nodes_data
+            }
+        )
+        relationship_types = sorted(
+            {
+                str(e.get("keywords") or e.get("description") or "related")
+                for e in edges_data
+            }
+        )
         return {
-            "total_entities": len(kg.entities),
-            "total_relationships": len(kg.relationships),
-            "entity_types": list(set(entity.type for entity in kg.entities.values())),
-            "relationship_types": list(set(rel.type for rel in kg.relationships.values())),
+            "session_id": session_id,
+            "total_entities": len(nodes_data),
+            "total_relationships": len(edges_data),
+            "entity_types": entity_types,
+            "relationship_types": relationship_types,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -340,24 +359,23 @@ async def get_knowledge_graph_stats():
 
 @router.post("/knowledge-graph/entity")
 async def add_entity(request: EntityRelationshipRequest):
-    if not state.rag_instance:
-        raise HTTPException(status_code=500, detail="Service not initialized")
+    target_rag = await _get_session_rag_or_raise(request.session_id)
     try:
-        entity = state.rag_instance.knowledge_graph.add_entity(
-            name=request.entity_name,
-            type=request.entity_type,
-            properties=request.properties,
-            document_id=request.document_id,
-        )
-        state.rag_instance.knowledge_graph.save(str(state.rag_instance.graph_path))
+        G = target_rag.graphcore.chunk_entity_relation_graph
+        props = dict(request.properties or {})
+        props.setdefault("entity_type", request.entity_type)
+        props.setdefault("source_id", request.document_id)
+        await G.upsert_node(request.entity_name, props)
+        await G.index_done_callback()
         return {
             "status": "success",
             "entity": {
-                "id": entity.id,
-                "name": entity.name,
-                "type": entity.type,
-                "properties": entity.properties,
-                "document_ids": list(entity.document_ids),
+                "id": request.entity_name,
+                "name": request.entity_name,
+                "type": props.get("entity_type", request.entity_type),
+                "properties": props,
+                "document_ids": [request.document_id] if request.document_id else [],
+                "session_id": request.session_id,
             },
         }
     except Exception as e:
@@ -366,31 +384,27 @@ async def add_entity(request: EntityRelationshipRequest):
 
 @router.post("/knowledge-graph/relationship")
 async def add_relationship(request: RelationshipRequest):
-    if not state.rag_instance:
-        raise HTTPException(status_code=500, detail="Service not initialized")
+    target_rag = await _get_session_rag_or_raise(request.session_id)
     try:
-        source_entity = state.rag_instance.knowledge_graph.get_entity_by_name(request.source_entity)
-        target_entity = state.rag_instance.knowledge_graph.get_entity_by_name(request.target_entity)
-        if not source_entity or not target_entity:
+        G = target_rag.graphcore.chunk_entity_relation_graph
+        if not await G.has_node(request.source_entity) or not await G.has_node(request.target_entity):
             raise HTTPException(status_code=404, detail="Source or target entity not found")
-
-        relationship = state.rag_instance.knowledge_graph.add_relationship(
-            source_id=source_entity.id,
-            target_id=target_entity.id,
-            type=request.relationship_type,
-            properties=request.properties,
-            document_id=request.document_id,
-        )
-        state.rag_instance.knowledge_graph.save(str(state.rag_instance.graph_path))
+        props = dict(request.properties or {})
+        props.setdefault("keywords", request.relationship_type)
+        props.setdefault("description", request.relationship_type)
+        props.setdefault("source_id", request.document_id)
+        await G.upsert_edge(request.source_entity, request.target_entity, props)
+        await G.index_done_callback()
         return {
             "status": "success",
             "relationship": {
-                "id": relationship.id,
-                "source_id": relationship.source_id,
-                "target_id": relationship.target_id,
-                "type": relationship.type,
-                "properties": relationship.properties,
-                "document_ids": list(relationship.document_ids),
+                "id": f"{request.source_entity}-{request.target_entity}",
+                "source_id": request.source_entity,
+                "target_id": request.target_entity,
+                "type": request.relationship_type,
+                "properties": props,
+                "document_ids": [request.document_id] if request.document_id else [],
+                "session_id": request.session_id,
             },
         }
     except HTTPException:
@@ -400,17 +414,14 @@ async def add_relationship(request: RelationshipRequest):
 
 
 @router.put("/knowledge-graph/entity/{entity_name}")
-async def update_entity(entity_name: str, properties: Dict[str, Any]):
-    if not state.rag_instance:
-        raise HTTPException(status_code=500, detail="Service not initialized")
+async def update_entity(entity_name: str, properties: Dict[str, Any], session_id: Optional[str] = None):
+    target_rag = await _get_session_rag_or_raise(session_id)
     try:
-        if not state.rag_instance.graphcore:
-            await state.rag_instance._ensure_graphcore_initialized()
-        G = state.rag_instance.graphcore.chunk_entity_relation_graph
+        G = target_rag.graphcore.chunk_entity_relation_graph
         if await G.has_node(entity_name):
             await G.upsert_node(entity_name, properties)
             await G.index_done_callback()
-            return {"status": "success", "message": f"Entity {entity_name} updated"}
+            return {"status": "success", "message": f"Entity {entity_name} updated", "session_id": session_id}
         raise HTTPException(status_code=404, detail="Entity not found")
     except HTTPException:
         raise
@@ -419,17 +430,14 @@ async def update_entity(entity_name: str, properties: Dict[str, Any]):
 
 
 @router.delete("/knowledge-graph/relationship")
-async def delete_relationship(source: str, target: str):
-    if not state.rag_instance:
-        raise HTTPException(status_code=500, detail="Service not initialized")
+async def delete_relationship(source: str, target: str, session_id: Optional[str] = None):
+    target_rag = await _get_session_rag_or_raise(session_id)
     try:
-        if not state.rag_instance.graphcore:
-            await state.rag_instance._ensure_graphcore_initialized()
-        G = state.rag_instance.graphcore.chunk_entity_relation_graph
+        G = target_rag.graphcore.chunk_entity_relation_graph
         if await G.has_edge(source, target):
             await G.remove_edges([(source, target)])
             await G.index_done_callback()
-            return {"status": "success", "message": f"Relationship {source}->{target} deleted"}
+            return {"status": "success", "message": f"Relationship {source}->{target} deleted", "session_id": session_id}
         raise HTTPException(status_code=404, detail="Relationship not found")
     except HTTPException:
         raise
@@ -439,7 +447,7 @@ async def delete_relationship(source: str, target: str):
 
 @router.get("/memory/stats")
 async def memory_stats():
-    """类人脑记忆引擎状态：episode 数量、图边数等。"""
+    """Memory engine status summary."""
     if not getattr(state, "memory_engine", None) or state.memory_engine is None:
         return {"enabled": False, "episodes": 0, "edges": 0}
     try:
@@ -456,7 +464,7 @@ async def memory_stats():
 
 @router.get("/memory/graph-data")
 async def memory_graph_data():
-    """记忆联想图可视化数据：节点（episode/entity/chunk）+ 边（联想类型），与 /knowledge-graph/data 同结构便于前端复用。"""
+    """Graph payload for memory visualization."""
     if not getattr(state, "memory_engine", None) or state.memory_engine is None:
         return {"nodes": [], "edges": [], "metadata": {"source": "memory", "enabled": False}}
     try:
@@ -464,32 +472,36 @@ async def memory_graph_data():
         episodes = state.memory_engine.episode_store.all_episodes()
         nodes = []
         edges = []
-        # 颜色：episode=蓝，entity=绿，chunk=橙
         type_color = {"episode": "#3498db", "entity": "#2ecc71", "chunk": "#e67e22"}
-        type_label = {"episode": "经历", "entity": "实体", "chunk": "片段"}
+        type_label = {"episode": "episode", "entity": "entity", "chunk": "chunk"}
         for nid, nd in graph.get_all_nodes():
             ntype = nd.get("type", "episode")
             label = nid
             if ntype == "episode" and nid in episodes:
-                summary = (episodes[nid].summary or nid)[:30]
-                label = summary + "…" if len(episodes[nid].summary or "") > 30 else (episodes[nid].summary or nid)
-            nodes.append({
-                "id": nid,
-                "label": label,
-                "type": type_label.get(ntype, ntype),
-                "size": 20,
-                "color": type_color.get(ntype, "#95a5a6"),
-            })
+                summary_text = episodes[nid].summary or ""
+                summary = (summary_text or nid)[:30]
+                label = summary + "..." if len(summary_text) > 30 else (summary_text or nid)
+            nodes.append(
+                {
+                    "id": nid,
+                    "label": label,
+                    "type": type_label.get(ntype, ntype),
+                    "size": 20,
+                    "color": type_color.get(ntype, "#95a5a6"),
+                }
+            )
         for e in graph.get_all_edges():
-            edges.append({
-                "id": f"{e.source_id}-{e.edge_type.value}-{e.target_id}",
-                "source": e.source_id,
-                "target": e.target_id,
-                "label": e.edge_type.value,
-                "type": e.edge_type.value,
-                "color": "#9b59b6",
-                "width": max(1, int(e.weight * 3)),
-            })
+            edges.append(
+                {
+                    "id": f"{e.source_id}-{e.edge_type.value}-{e.target_id}",
+                    "source": e.source_id,
+                    "target": e.target_id,
+                    "label": e.edge_type.value,
+                    "type": e.edge_type.value,
+                    "color": "#9b59b6",
+                    "width": max(1, int(e.weight * 3)),
+                }
+            )
         return {
             "nodes": nodes,
             "edges": edges,
@@ -506,7 +518,7 @@ async def memory_graph_data():
 
 @router.post("/memory/consolidate")
 async def memory_consolidate(recent_n: int = 50, run_llm: bool = True):
-    """触发一次记忆巩固（重放、跨事件联想、权重更新）。"""
+    """Trigger one memory consolidation pass."""
     if not getattr(state, "memory_engine", None) or state.memory_engine is None:
         raise HTTPException(status_code=501, detail="Memory engine not initialized")
     try:
@@ -514,7 +526,6 @@ async def memory_consolidate(recent_n: int = 50, run_llm: bool = True):
             recent_n=recent_n,
             run_llm=run_llm,
         )
-        # 巩固后执行神经可塑性：边权衰减与低权剪枝
         try:
             dp = state.memory_engine.decay_and_prune(
                 decay_factor=0.9,
@@ -537,7 +548,7 @@ async def memory_decay_prune(
     max_age_days: float = 30.0,
     min_weight: float = 0.05,
 ):
-    """单独触发记忆图边权衰减与低权剪枝（神经可塑性）。"""
+    """Run memory edge decay and pruning."""
     if not getattr(state, "memory_engine", None) or state.memory_engine is None:
         raise HTTPException(status_code=501, detail="Memory engine not initialized")
     try:
@@ -550,4 +561,3 @@ async def memory_decay_prune(
         return {"success": True, **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-

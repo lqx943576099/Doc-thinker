@@ -38,15 +38,23 @@ class IngestionService:
         await session_rag._ensure_graphcore_initialized()
         return session_rag
 
+    async def _resolve_target_rag(self, session_id: Optional[str]) -> Any:
+        if not session_id:
+            raise ValueError("session_id is required")
+        return await self._get_session_rag(session_id)
+
     async def ingest_text(self, text: str, session_id: Optional[str] = None) -> None:
-        """所有 ingest 均写入全局图谱，不考虑 session。"""
-        await self._insert_text(self.rag_global, text)
+        """Ingest text into a session graph."""
+        target_rag = await self._resolve_target_rag(session_id)
+        await self._insert_text(target_rag, text)
 
     async def ingest_folder(self, folder_path: str, session_id: Optional[str] = None) -> None:
-        """所有 ingest 均写入全局图谱，不考虑 session。"""
-        await self.rag_global.process_folder_complete(folder_path)
+        """Ingest folder into a session graph."""
+        target_rag = await self._resolve_target_rag(session_id)
+        await target_rag.process_folder_complete(folder_path)
 
     async def ingest_files(self, file_paths: List[str], session_id: Optional[str] = None) -> None:
-        """所有 ingest 均写入全局图谱，不考虑 session。"""
+        """Ingest files into a session graph."""
+        target_rag = await self._resolve_target_rag(session_id)
         for file_path in file_paths:
-            await self.rag_global.process_document_complete(file_path)
+            await target_rag.process_document_complete(file_path)

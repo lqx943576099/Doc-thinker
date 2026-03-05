@@ -5,7 +5,7 @@ DocThinker 是一个以文档理解为核心的知识系统，当前主线为：
 - `graphcore`：图检索与图存储能力
 - `neuro_memory`：类脑记忆（扩散激活、情景记忆、联想检索）
 
-本仓库已完成一次主线收敛清理：旧版 NeuroAgent 主线与其冗余文档/模块已移除。
+本仓库只维护当前主线，已移除旧版 NeuroAgent 分支代码。
 
 ## 1. 推荐启动方式
 
@@ -58,4 +58,4 @@ pytest tests/ -v
 - 项目结构：[docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)
 - 系统流程：[docs/SYSTEM_FLOW_GUIDE.md](docs/SYSTEM_FLOW_GUIDE.md)
 - KG 优化：[docs/KG_OPTIMIZATIONS.md](docs/KG_OPTIMIZATIONS.md)
-- 清理执行记录：[docs/CLEANUP_EXECUTION_2026-03-05.md](docs/CLEANUP_EXECUTION_2026-03-05.md)
+- 安全检查：[docs/SECURITY_CHECK.md](docs/SECURITY_CHECK.md)

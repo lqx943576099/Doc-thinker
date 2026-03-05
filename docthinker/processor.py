@@ -3,7 +3,8 @@ Document processing functionality for DocThinker
 
 Contains methods for parsing documents and processing multimodal content
 """
-#主要负责chunk的切分，多模态信息的处理，关系实体抽�?import os
+# 主要负责 chunk 切分、多模态信息处理和实体关系抽取
+import os
 import time
 import hashlib
 import json

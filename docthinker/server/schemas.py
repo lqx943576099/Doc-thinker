@@ -28,6 +28,7 @@ class EntityRelationshipRequest(BaseModel):
     entity_type: str
     document_id: str
     properties: Optional[Dict[str, Any]] = None
+    session_id: Optional[str] = None
 
 
 class RelationshipRequest(BaseModel):
@@ -36,6 +37,7 @@ class RelationshipRequest(BaseModel):
     relationship_type: str
     document_id: str
     properties: Optional[Dict[str, Any]] = None
+    session_id: Optional[str] = None
 
 
 class IngestRequest(BaseModel):

@@ -1,7 +1,7 @@
 import json
-import os
+import re
 import shutil
-import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Any, Dict, Iterable
 import numpy as np
@@ -10,7 +10,6 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile,
 
 from ..schemas import IngestRequest, SignalIngestRequest
 from ..state import state
-from docthinker.hypergraph.schemas import StructuredChunk
 from docthinker.hypergraph.utils import compute_mdhash_id
 from docthinker.utils import separate_content
 
@@ -94,6 +93,175 @@ def _collect_content_list_groups(paths: Iterable[Path]) -> Dict[str, List[Path]]
     return grouped
 
 
+def _safe_snapshot_name(value: str) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return "source"
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", raw)
+    cleaned = cleaned.strip("._-")
+    return cleaned[:64] or "source"
+
+
+def _split_text_for_snapshot(text: str, chunk_size: int = 1200, overlap: int = 180) -> List[Dict[str, Any]]:
+    source = (text or "").strip()
+    if not source:
+        return []
+    if chunk_size <= 0:
+        chunk_size = 1200
+    overlap = max(0, min(overlap, chunk_size // 2))
+    chunks: List[Dict[str, Any]] = []
+    start = 0
+    index = 0
+    while start < len(source):
+        end = min(len(source), start + chunk_size)
+        chunk_text = source[start:end]
+        chunks.append(
+            {
+                "chunk_id": compute_mdhash_id(chunk_text, prefix="chunk-"),
+                "index": index,
+                "start": start,
+                "end": end,
+                "text": chunk_text,
+            }
+        )
+        if end >= len(source):
+            break
+        start = end - overlap
+        index += 1
+    return chunks
+
+
+def _build_snapshot_nodes(metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
+    nodes: List[Dict[str, Any]] = []
+    for entity in metadata.get("entities") or []:
+        if not isinstance(entity, dict):
+            continue
+        name = (entity.get("name") or "").strip()
+        if not name:
+            continue
+        entity_type = (entity.get("entity_type") or "UNKNOWN").strip() or "UNKNOWN"
+        node_id = compute_mdhash_id(f"{name.lower()}|{entity_type.lower()}", prefix="node-")
+        nodes.append(
+            {
+                "id": node_id,
+                "label": name,
+                "entity_type": entity_type,
+                "description": entity.get("description") or "",
+                "confidence": float(entity.get("confidence") or 0.0),
+                "aliases": entity.get("aliases") or [],
+                "attributes": entity.get("attributes") or {},
+            }
+        )
+    return nodes
+
+
+def _build_snapshot_edges(metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
+    edges: List[Dict[str, Any]] = []
+    grouped = (
+        ("relations", False),
+        ("inferred_relations", True),
+    )
+    for key, inferred in grouped:
+        for relation in metadata.get(key) or []:
+            if not isinstance(relation, dict):
+                continue
+            src = (relation.get("source") or "").strip()
+            tgt = (relation.get("target") or "").strip()
+            rel = (relation.get("relation") or "").strip()
+            if not src or not tgt or not rel:
+                continue
+            edge_id = compute_mdhash_id(
+                f"{src.lower()}|{rel.lower()}|{tgt.lower()}|{int(inferred)}",
+                prefix="edge-",
+            )
+            edges.append(
+                {
+                    "id": edge_id,
+                    "source": src,
+                    "target": tgt,
+                    "relation": rel,
+                    "description": relation.get("description") or "",
+                    "confidence": float(relation.get("confidence") or 0.0),
+                    "inferred": inferred,
+                }
+            )
+    return edges
+
+
+async def _write_session_code_snapshot(
+    *,
+    session_id: Optional[str],
+    source_type: str,
+    source_name: str,
+    original_text: str,
+    processed_text: str,
+    metadata: Dict[str, Any],
+) -> None:
+    if not session_id or not state.session_manager:
+        return
+    try:
+        code_dir = state.session_manager.get_session_code_dir(session_id)
+    except Exception:
+        return
+
+    chunk_source = original_text or processed_text
+    chunks = _split_text_for_snapshot(chunk_source)
+    nodes = _build_snapshot_nodes(metadata)
+    edges = _build_snapshot_edges(metadata)
+
+    payload = {
+        "session_id": session_id,
+        "source_type": source_type,
+        "source_name": source_name,
+        "created_at": datetime.now().isoformat(),
+        "raw_text_length": len(original_text or ""),
+        "processed_text_length": len(processed_text or ""),
+        "chunks": chunks,
+        "nodes": nodes,
+        "relationships": edges,
+        "metadata": {
+            "summary": metadata.get("summary"),
+            "reasoning": metadata.get("reasoning"),
+            "key_points": metadata.get("key_points") or [],
+            "concepts": metadata.get("concepts") or [],
+            "hypotheses": metadata.get("hypotheses") or [],
+            "action_items": metadata.get("action_items") or [],
+        },
+    }
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    safe_name = _safe_snapshot_name(Path(source_name).stem or source_name or "source")
+    out_path = code_dir / f"{ts}_{safe_name}.json"
+    out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _allocate_upload_target(session_id: str, filename: str) -> Path:
+    if not session_id:
+        raise ValueError("session_id is required")
+    if not state.session_manager:
+        raise ValueError("Session manager is not initialized")
+    return state.session_manager.allocate_session_file_path(session_id, filename)
+
+
+async def _extract_session_id(session_id: Optional[str], request: Optional[Request]) -> Optional[str]:
+    sid = (session_id or "").strip()
+    if sid:
+        return sid
+    if request is None:
+        return None
+    sid = (request.query_params.get("session_id") or "").strip()
+    if sid:
+        return sid
+    try:
+        form = await request.form()
+        sid = str(form.get("session_id") or "").strip()
+        if sid:
+            return sid
+    except Exception:
+        pass
+    return None
+
+
 async def _process_text_for_ingest(content: str, source_type: str) -> tuple[str, Dict[str, Any]]:
     processed_text = content
     metadata: Dict[str, Any] = {"source_type": source_type, "type": "text"}
@@ -136,82 +304,6 @@ async def _process_text_for_ingest(content: str, source_type: str) -> tuple[str,
         except Exception:
             pass
     return processed_text, metadata
-
-
-async def _insert_structured_kg(text: str, metadata: Dict[str, Any]) -> None:
-    if not state.orchestrator or not getattr(state.orchestrator, "hyper_system", None):
-        return
-    entities = metadata.get("entities") or []
-    relations = metadata.get("relations") or []
-    inferred_relations = metadata.get("inferred_relations") or []
-    if not entities and not relations:
-        return
-    source_id = compute_mdhash_id(text, prefix="source-")
-    chunk_entry = {"content": text, "source_id": source_id}
-    entity_entries = []
-    for entity in entities:
-        if not isinstance(entity, dict):
-            continue
-        name = entity.get("name")
-        if not name:
-            continue
-        confidence = float(entity.get("confidence") or 0.0)
-        entity_entries.append(
-            {
-                "entity_name": name,
-                "entity_type": entity.get("entity_type") or "UNKNOWN",
-                "description": entity.get("description") or "",
-                "weight": max(confidence * 100.0, 1.0),
-                "source_id": source_id,
-            }
-        )
-    relation_entries = []
-    for relation in relations:
-        if not isinstance(relation, dict):
-            continue
-        src = relation.get("source")
-        tgt = relation.get("target")
-        rel = relation.get("relation")
-        if not src or not tgt or not rel:
-            continue
-        confidence = float(relation.get("confidence") or 0.0)
-        relation_entries.append(
-            {
-                "src_id": src,
-                "tgt_id": tgt,
-                "description": relation.get("description") or "",
-                "keywords": rel,
-                "weight": max(confidence * 100.0, 1.0),
-                "source_id": source_id,
-            }
-        )
-    for relation in inferred_relations:
-        if not isinstance(relation, dict):
-            continue
-        src = relation.get("source")
-        tgt = relation.get("target")
-        rel = relation.get("relation")
-        if not src or not tgt or not rel:
-            continue
-        confidence = float(relation.get("confidence") or 0.0)
-        relation_entries.append(
-            {
-                "src_id": src,
-                "tgt_id": tgt,
-                "description": relation.get("description") or "",
-                "keywords": f"inferred::{rel}",
-                "weight": max(confidence * 100.0, 1.0),
-                "source_id": source_id,
-            }
-        )
-    if not entity_entries and not relation_entries:
-        return
-    custom_kg = {
-        "chunks": [chunk_entry],
-        "entities": entity_entries,
-        "relationships": relation_entries,
-    }
-    await state.orchestrator.hyper_system.ainsert_custom_kg(custom_kg)
 
 
 def _build_entity_text(name: str, description: str) -> str:
@@ -411,8 +503,28 @@ async def _auto_link_related_entities(
                 break
 
 
-async def _update_local_knowledge_graph(text: str, metadata: Dict[str, Any]) -> None:
+async def _resolve_rag_for_session(session_id: Optional[str]) -> Any:
     rag_instance = state.rag_instance
+    if not rag_instance:
+        return None
+    if not session_id or not state.session_manager:
+        return None
+    try:
+        session_rag = state.session_manager.get_session_rag(
+            session_id,
+            rag_instance.config,
+            getattr(rag_instance, "graphcore_kwargs", {}),
+        )
+        session_rag.llm_model_func = rag_instance.llm_model_func
+        session_rag.embedding_func = rag_instance.embedding_func
+        await session_rag._ensure_graphcore_initialized()
+        return session_rag
+    except Exception:
+        return None
+
+
+async def _update_local_knowledge_graph(text: str, metadata: Dict[str, Any], session_id: Optional[str] = None) -> None:
+    rag_instance = await _resolve_rag_for_session(session_id)
     if not rag_instance or not getattr(rag_instance, "knowledge_graph", None):
         return
     knowledge_graph = rag_instance.knowledge_graph
@@ -577,7 +689,7 @@ async def _update_local_knowledge_base(
     source_type: str,
     session_id: Optional[str],
 ) -> None:
-    rag_instance = state.rag_instance
+    rag_instance = await _resolve_rag_for_session(session_id)
     if not rag_instance or not getattr(rag_instance, "knowledge_base_manager", None):
         return
     try:
@@ -594,7 +706,7 @@ async def _update_local_knowledge_base(
 async def _process_image_for_ingest(image_path: str) -> str:
     if not state.rag_instance or not getattr(state.rag_instance, "vision_model_func", None):
         raise RuntimeError("Vision model is not configured")
-    prompt = "请描述这张图片的关键信息，提炼可用于知识沉淀的事实与概念。"
+    prompt = "Describe key entities, events, and relationships in this image for knowledge graph extraction."
     description = await state.rag_instance.vision_model_func(prompt, image_data=image_path)
     return f"Source: image\nContent:\n{description}"
 
@@ -603,6 +715,8 @@ async def _process_image_for_ingest(image_path: str) -> str:
 async def ingest_stream(request: IngestRequest, background_tasks: BackgroundTasks):
     if not state.ingestion_service:
         raise HTTPException(status_code=500, detail="Ingestion service not initialized")
+    if not request.session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
 
     async def _process_and_ingest(content: str, source_type: str, session_id: Optional[str]):
         processed_text, metadata = await _process_text_for_ingest(content, source_type)
@@ -611,18 +725,7 @@ async def ingest_stream(request: IngestRequest, background_tasks: BackgroundTask
         except Exception:
             pass
         try:
-            if state.orchestrator and getattr(state.orchestrator, "hyper_system", None):
-                await state.orchestrator.hyper_system.ainsert(
-                    StructuredChunk(text=processed_text, metadata=metadata)
-                )
-        except Exception:
-            pass
-        try:
-            await _insert_structured_kg(processed_text, metadata)
-        except Exception:
-            pass
-        try:
-            await _update_local_knowledge_graph(processed_text, metadata)
+            await _update_local_knowledge_graph(processed_text, metadata, session_id=session_id)
         except Exception:
             pass
         try:
@@ -631,6 +734,17 @@ async def ingest_stream(request: IngestRequest, background_tasks: BackgroundTask
                 metadata,
                 source_type=source_type,
                 session_id=session_id,
+            )
+        except Exception:
+            pass
+        try:
+            await _write_session_code_snapshot(
+                session_id=session_id,
+                source_type=source_type,
+                source_name=f"stream_{source_type}",
+                original_text=content,
+                processed_text=processed_text,
+                metadata=metadata,
             )
         except Exception:
             pass
@@ -643,6 +757,8 @@ async def ingest_stream(request: IngestRequest, background_tasks: BackgroundTask
 async def ingest_signal(request: SignalIngestRequest, background_tasks: BackgroundTasks):
     if not state.ingestion_service:
         raise HTTPException(status_code=500, detail="Ingestion service not initialized")
+    if not request.session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
 
     async def _process_and_ingest(signal_text: str, source_type: str, session_id: Optional[str]):
         processed_text, metadata = await _process_text_for_ingest(signal_text, source_type)
@@ -651,18 +767,7 @@ async def ingest_signal(request: SignalIngestRequest, background_tasks: Backgrou
         except Exception:
             pass
         try:
-            if state.orchestrator and getattr(state.orchestrator, "hyper_system", None):
-                await state.orchestrator.hyper_system.ainsert(
-                    StructuredChunk(text=processed_text, metadata=metadata)
-                )
-        except Exception:
-            pass
-        try:
-            await _insert_structured_kg(processed_text, metadata)
-        except Exception:
-            pass
-        try:
-            await _update_local_knowledge_graph(processed_text, metadata)
+            await _update_local_knowledge_graph(processed_text, metadata, session_id=session_id)
         except Exception:
             pass
         try:
@@ -671,6 +776,17 @@ async def ingest_signal(request: SignalIngestRequest, background_tasks: Backgrou
                 metadata,
                 source_type=source_type,
                 session_id=session_id,
+            )
+        except Exception:
+            pass
+        try:
+            await _write_session_code_snapshot(
+                session_id=session_id,
+                source_type=source_type,
+                source_name=f"signal_{source_type}",
+                original_text=signal_text,
+                processed_text=processed_text,
+                metadata=metadata,
             )
         except Exception:
             pass
@@ -691,46 +807,36 @@ async def ingest_files(
     if not state.ingestion_service or not state.session_manager:
         raise HTTPException(status_code=500, detail="Service not initialized")
 
-    if not session_id and request is not None:
-        session_id = request.query_params.get("session_id")
-        if not session_id:
-            try:
-                form = await request.form()
-                session_id = form.get("session_id")
-            except Exception:
-                session_id = None
+    session_id = await _extract_session_id(session_id, request)
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
 
     uploaded_files: List[str] = []
     try:
-        # Create a persistent temp directory for background processing
-        temp_dir = tempfile.mkdtemp()
-        temp_path = Path(temp_dir)
-        
         for file in files:
-            file_path = temp_path / file.filename
+            file_path = _allocate_upload_target(session_id, file.filename)
             file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             await file.close()
             uploaded_files.append(str(file_path))
 
-            if session_id:
-                try:
-                    state.session_manager.add_document_record(
-                        session_id,
-                        file.filename,
-                        file_path=str(file_path),
-                        file_size=file_path.stat().st_size,
-                        file_ext=file_path.suffix.lower(),
-                    )
-                except Exception:
-                    pass
+            try:
+                state.session_manager.add_document_record(
+                    session_id,
+                    file.filename,
+                    file_path=str(file_path),
+                    file_size=file_path.stat().st_size,
+                    file_ext=file_path.suffix.lower(),
+                )
+            except Exception:
+                pass
 
-        async def _background_file_processing(file_paths: List[str], sid: Optional[str]):
+        async def _background_file_processing(file_paths: List[str], sid: str):
             try:
                 image_exts = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".gif", ".webp"}
                 text_exts = {".txt", ".md"}
-                
+
                 content_list_paths: List[Path] = []
                 image_paths: List[Path] = []
                 text_paths: List[Path] = []
@@ -747,9 +853,8 @@ async def ingest_files(
                     else:
                         complex_paths.append(path)
 
-                # 1. Process structured content list (GraphCore + HyperGraph)
-                if content_list_paths and state.rag_instance:
-                    await state.rag_instance._ensure_graphcore_initialized()
+                # 1) Structured content-list files
+                if content_list_paths:
                     grouped = _collect_content_list_groups(content_list_paths)
                     for doc_id, paths in grouped.items():
                         combined: List[dict[str, Any]] = []
@@ -760,48 +865,95 @@ async def ingest_files(
                                     combined.extend(content)
                             except Exception:
                                 pass
-                        
-                        # Ingest into GraphCore (for retrieval)
-                        # Note: We need to convert to text or process structured chunks
-                        # For now, we assume _insert_structured_kg handles this logic
-                        pass
 
-                # 2. Process images
+                        if not combined:
+                            continue
+
+                        lines: List[str] = []
+                        for item in combined:
+                            if isinstance(item, str):
+                                if item.strip():
+                                    lines.append(item.strip())
+                                continue
+                            if not isinstance(item, dict):
+                                continue
+                            for key in ("text", "content", "caption", "ocr_text", "title"):
+                                value = item.get(key)
+                                if isinstance(value, str) and value.strip():
+                                    lines.append(value.strip())
+                                    break
+
+                        merged_text = "\n".join(lines).strip()
+                        if not merged_text:
+                            continue
+
+                        processed_text, metadata = await _process_text_for_ingest(merged_text, "content_list")
+                        await state.ingestion_service.ingest_text(processed_text, session_id=sid)
+                        await _update_local_knowledge_graph(processed_text, metadata, session_id=sid)
+                        await _update_local_knowledge_base(
+                            merged_text,
+                            metadata,
+                            source_type="content_list",
+                            session_id=sid,
+                        )
+                        await _write_session_code_snapshot(
+                            session_id=sid,
+                            source_type="content_list",
+                            source_name=f"{doc_id}_content_list",
+                            original_text=merged_text,
+                            processed_text=processed_text,
+                            metadata=metadata,
+                        )
+
+                # 2) Images
                 for img_path in image_paths:
                     try:
-                        desc = await _process_image_for_ingest(str(img_path))
-                        if state.ingestion_service:
-                            await state.ingestion_service.ingest_text(desc, session_id=sid)
+                        image_text = await _process_image_for_ingest(str(img_path))
+                        processed_text, metadata = await _process_text_for_ingest(image_text, "image")
+                        await state.ingestion_service.ingest_text(processed_text, session_id=sid)
+                        await _update_local_knowledge_graph(processed_text, metadata, session_id=sid)
+                        await _update_local_knowledge_base(
+                            image_text,
+                            metadata,
+                            source_type="image",
+                            session_id=sid,
+                        )
+                        await _write_session_code_snapshot(
+                            session_id=sid,
+                            source_type="image",
+                            source_name=img_path.name,
+                            original_text=image_text,
+                            processed_text=processed_text,
+                            metadata=metadata,
+                        )
                     except Exception:
                         pass
 
-                # 3. Process simple text files
+                # 3) Plain text files
                 for txt_path in text_paths:
                     try:
                         content = txt_path.read_text(encoding="utf-8", errors="ignore")
-                        if state.ingestion_service:
-                            await state.ingestion_service.ingest_text(content, session_id=sid)
-                        
-                        # Trigger auto-learning
                         processed_text, metadata = await _process_text_for_ingest(content, "file")
-                        if state.orchestrator and getattr(state.orchestrator, "hyper_system", None):
-                            await state.orchestrator.hyper_system.ainsert(
-                                StructuredChunk(text=processed_text, metadata=metadata)
-                            )
-                        await _insert_structured_kg(processed_text, metadata)
-                        await _update_local_knowledge_graph(processed_text, metadata)
+                        await state.ingestion_service.ingest_text(processed_text, session_id=sid)
+                        await _update_local_knowledge_graph(processed_text, metadata, session_id=sid)
                         await _update_local_knowledge_base(
                             content,
                             metadata,
                             source_type="file",
                             session_id=sid,
                         )
-
+                        await _write_session_code_snapshot(
+                            session_id=sid,
+                            source_type="file",
+                            source_name=txt_path.name,
+                            original_text=content,
+                            processed_text=processed_text,
+                            metadata=metadata,
+                        )
                     except Exception:
                         pass
 
-                # 4. Process complex files (PDF/Doc): parse → KG update → ingest
-                # PDF 需先解析出文本，经认知分析后更新知识图谱，再走常规 ingest（含 graphcore）
+                # 4) Complex files (PDF/Doc)
                 if complex_paths and state.rag_instance:
                     for p in complex_paths:
                         try:
@@ -809,31 +961,33 @@ async def ingest_files(
                             text_content, _ = separate_content(content_list)
                             if text_content.strip():
                                 processed_text, metadata = await _process_text_for_ingest(text_content, "file")
-                                await _insert_structured_kg(processed_text, metadata)
-                                await _update_local_knowledge_graph(processed_text, metadata)
+                                await _update_local_knowledge_graph(processed_text, metadata, session_id=sid)
                                 await _update_local_knowledge_base(
                                     text_content,
                                     metadata,
                                     source_type="file",
                                     session_id=sid,
                                 )
+                                await _write_session_code_snapshot(
+                                    session_id=sid,
+                                    source_type="file",
+                                    source_name=p.name,
+                                    original_text=text_content,
+                                    processed_text=processed_text,
+                                    metadata=metadata,
+                                )
                         except Exception as e:
                             print(f"PDF KG update failed for {p}: {e}")
-                    if complex_paths and state.ingestion_service:
-                        await state.ingestion_service.ingest_files([str(p) for p in complex_paths], session_id=sid)
+                    await state.ingestion_service.ingest_files([str(p) for p in complex_paths], session_id=sid)
 
             except Exception as e:
                 print(f"Background processing error: {e}")
-            finally:
-                # Cleanup temp directory after processing is done (or keep it if needed for reference)
-                # shutil.rmtree(temp_dir, ignore_errors=True)
-                pass
 
         background_tasks.add_task(_background_file_processing, uploaded_files, session_id)
-        
+
         return {
-            "status": "success", 
-            "message": f"Successfully processed {len(uploaded_files)} files", 
+            "status": "success",
+            "message": f"Successfully processed {len(uploaded_files)} files",
             "files": [{"name": Path(f).name} for f in uploaded_files],
             "session_id": session_id,
         }
@@ -849,12 +1003,4 @@ async def upload_files(
     request: Request = None,
 ):
     """Alias for /ingest to match frontend expectations"""
-    if not session_id and request is not None:
-        session_id = request.query_params.get("session_id")
-        if not session_id:
-            try:
-                form = await request.form()
-                session_id = form.get("session_id")
-            except Exception:
-                session_id = None
     return await ingest_files(background_tasks, files, session_id, request)
