@@ -401,9 +401,12 @@ def kg_stats_all_proxy():
 @app.route(f'{api_config.api_prefix}/graph/memory/graph-data', methods=['GET'])
 def memory_graph_proxy():
     import requests
+    session_id = request.args.get('session_id', '')
+    if not session_id:
+        return jsonify({'nodes': [], 'edges': [], 'error': 'session_id is required'}), 400
     backend_url = f"http://127.0.0.1:8000{api_config.api_prefix}/memory/graph-data"
     try:
-        resp = requests.get(backend_url, timeout=30)
+        resp = requests.get(backend_url, params={'session_id': session_id}, timeout=30)
         return jsonify(resp.json()), resp.status_code
     except Exception as e:
         return jsonify({'nodes': [], 'edges': [], 'error': str(e)}), 500

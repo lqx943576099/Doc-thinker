@@ -1,0 +1,1487 @@
+{
+  "episodes": [
+    {
+      "episode_id": "ep-efd38d1e01d99ff0",
+      "timestamp": 1772449325.6909826,
+      "source_type": "chat",
+      "session_id": null,
+      "summary": "用户询问关于“高度补偿”的章节位置，助手回答通常涉及心理学、教育学或生理学领域。",
+      "key_points": [
+        "高度补偿通常在讨论个体差异、适应性发展或身心健康时提及。",
+        "更多上下文信息有助于提供具体章节位置。"
+      ],
+      "concepts": [
+        "高度补偿",
+        "个体差异",
+        "适应性发展",
+        "身心健康"
+      ],
+      "entity_ids": [
+        "高度补偿",
+        "个体差异",
+        "适应性发展",
+        "身心健康"
+      ],
+      "relation_triples": [
+        [
+          "高度补偿",
+          "相关",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "应用",
+          "适应性发展"
+        ],
+        [
+          "高度补偿",
+          "影响",
+          "身心健康"
+        ],
+        [
+          "高度补偿",
+          "可能导致",
+          "个体差异"
+        ],
+        [
+          "适应性发展",
+          "相互促进",
+          "身心健康"
+        ],
+        [
+          "个体差异",
+          "影响",
+          "身心健康"
+        ],
+        [
+          "高度补偿",
+          "相关",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "应用",
+          "适应性发展"
+        ],
+        [
+          "高度补偿",
+          "影响",
+          "身心健康"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(4): 高度补偿, 个体差异, 适应性发展, 身心健康 | Relations: 影响(3), 相关(2), 应用(2), 可能导致(1), 相互促进(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-ad8026827df4136c",
+      "timestamp": 1772449360.4690757,
+      "source_type": "chat",
+      "session_id": null,
+      "summary": "用户请求分析一篇论文，助理需要更多的具体信息才能提供有效的帮助。",
+      "key_points": [
+        "用户需要分析论文",
+        "助理需要论文主题和主要观点",
+        "用户可以提供文档以获得更准确的分析"
+      ],
+      "concepts": [
+        "论文分析",
+        "信息需求",
+        "具体内容"
+      ],
+      "entity_ids": [
+        "论文",
+        "信息需求"
+      ],
+      "relation_triples": [
+        [
+          "论文",
+          "分析",
+          "信息需求"
+        ],
+        [
+          "用户",
+          "请求提供",
+          "论文"
+        ],
+        [
+          "信息需求",
+          "支持",
+          "论文分析"
+        ],
+        [
+          "具体内容",
+          "影响",
+          "论文分析"
+        ],
+        [
+          "论文",
+          "分析",
+          "信息需求"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(2): 论文, 信息需求 | Relations: 分析(2), 请求提供(1), 支持(1), 影响(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-7b2042e5a9ad6cc7",
+      "timestamp": 1772450727.7249827,
+      "source_type": "chat",
+      "session_id": null,
+      "summary": "高度补偿是个体为抵消挑战和缺陷而采取的调整策略，广泛应用于心理学、教育学和生理学等领域。",
+      "key_points": [
+        "心理学中的高度补偿体现个体的应对能力。",
+        "教育学探讨用高度补偿策略帮助学生克服学习障碍。",
+        "生理学分析个体如何应对身体限制。",
+        "与个体差异和适应性发展相关的讨论。"
+      ],
+      "concepts": [
+        "高度补偿",
+        "个体差异",
+        "适应性发展"
+      ],
+      "entity_ids": [
+        "高度补偿",
+        "个体差异",
+        "适应性发展"
+      ],
+      "relation_triples": [
+        [
+          "高度补偿",
+          "相关",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "相关",
+          "适应性发展"
+        ],
+        [
+          "个体差异",
+          "positively influences",
+          "适应性发展"
+        ],
+        [
+          "高度补偿",
+          "can enhance",
+          "心理健康"
+        ],
+        [
+          "高度补偿",
+          "may lead to",
+          "学习成就"
+        ],
+        [
+          "高度补偿",
+          "相关",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "相关",
+          "适应性发展"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(3): 高度补偿, 个体差异, 适应性发展 | Relations: 相关(4), positively influences(1), can enhance(1), may lead to(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-b5ac7b79c92ce8d7",
+      "timestamp": 1772450960.2162907,
+      "source_type": "chat",
+      "session_id": null,
+      "summary": "高度补偿的概念涉及个体在面对挑战或缺陷时所采取的平衡策略，主要应用于心理学、教育学和生理学等领域。",
+      "key_points": [
+        "心理学中的高度补偿用于平衡缺陷影响",
+        "教育学关注学生如何利用高度补偿克服障碍",
+        "生理学讨论个体如何应对身体限制",
+        "个体差异和适应性发展与高度补偿紧密相关"
+      ],
+      "concepts": [
+        "高度补偿",
+        "个体差异",
+        "适应性发展",
+        "应对策略"
+      ],
+      "entity_ids": [
+        "高度补偿",
+        "个体差异",
+        "适应性发展",
+        "应对策略"
+      ],
+      "relation_triples": [
+        [
+          "高度补偿",
+          "紧密相关",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "紧密相关",
+          "适应性发展"
+        ],
+        [
+          "高度补偿",
+          "相关",
+          "应对策略"
+        ],
+        [
+          "个体差异",
+          "促成",
+          "应对策略"
+        ],
+        [
+          "适应性发展",
+          "影响",
+          "应对策略"
+        ],
+        [
+          "高度补偿",
+          "反映",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "紧密相关",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "紧密相关",
+          "适应性发展"
+        ],
+        [
+          "高度补偿",
+          "相关",
+          "应对策略"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(4): 高度补偿, 个体差异, 适应性发展, 应对策略 | Relations: 紧密相关(4), 相关(2), 促成(1), 影响(1), 反映(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-8943bb42554d36f2",
+      "timestamp": 1772452256.935741,
+      "source_type": "chat",
+      "session_id": null,
+      "summary": "高度补偿是通过几何模型和修正计算来降低因高度差造成的测量误差，以提高测量精度。",
+      "key_points": [
+        "应用几何模型调整被测量物体的中心高度。",
+        "计算并修正中心点的位置，基于物体高度与视线角度。",
+        "可选实施长度补偿，针对物体的轴向长度偏差。",
+        "系统误差补偿用于处理高度变化较大的物体，提高测量一致性。"
+      ],
+      "concepts": [
+        "几何补偿",
+        "中心点修正",
+        "长度补偿",
+        "系统误差补偿"
+      ],
+      "entity_ids": [
+        "几何补偿",
+        "中心点修正",
+        "长度补偿",
+        "系统误差补偿"
+      ],
+      "relation_triples": [
+        [
+          "高度补偿",
+          "实现方式",
+          "几何补偿"
+        ],
+        [
+          "高度补偿",
+          "实现方式",
+          "中心点修正"
+        ],
+        [
+          "高度补偿",
+          "可选实现",
+          "长度补偿"
+        ],
+        [
+          "高度补偿",
+          "实现方式",
+          "系统误差补偿"
+        ],
+        [
+          "几何补偿",
+          "is part of",
+          "高度补偿"
+        ],
+        [
+          "中心点修正",
+          "is part of",
+          "高度补偿"
+        ],
+        [
+          "长度补偿",
+          "is related to",
+          "高度补偿"
+        ],
+        [
+          "系统误差补偿",
+          "is part of",
+          "高度补偿"
+        ],
+        [
+          "高度补偿",
+          "实现方式",
+          "几何补偿"
+        ],
+        [
+          "高度补偿",
+          "实现方式",
+          "中心点修正"
+        ],
+        [
+          "高度补偿",
+          "可选实现",
+          "长度补偿"
+        ],
+        [
+          "高度补偿",
+          "实现方式",
+          "系统误差补偿"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(4): 几何补偿, 中心点修正, 长度补偿, 系统误差补偿 | Relations: 实现方式(6), is part of(3), 可选实现(2), is related to(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-f7ce89a60d72739d",
+      "timestamp": 1772584876.5761175,
+      "source_type": "chat",
+      "session_id": null,
+      "summary": "The user greeted the assistant and the assistant responded positively, offering help with various tasks.",
+      "key_points": [
+        "User initiated conversation with a greeting.",
+        "Assistant responded with an offer to assist."
+      ],
+      "concepts": [
+        "User assistance",
+        "Communication initiation"
+      ],
+      "entity_ids": [
+        "User Assistance"
+      ],
+      "relation_triples": [
+        [
+          "User Assistance",
+          "responds to",
+          "User Question"
+        ],
+        [
+          "User",
+          "initiates conversation with",
+          "Assistant"
+        ],
+        [
+          "Assistant",
+          "provides support for tasks",
+          "User"
+        ],
+        [
+          "User",
+          "seeks",
+          "Assistance"
+        ],
+        [
+          "User Assistance",
+          "responds to",
+          "User Question"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(1): User Assistance | Relations: responds to(2), initiates conversation with(1), provides support for tasks(1), seeks(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-f51a32a29b384e2f",
+      "timestamp": 1772585167.241832,
+      "source_type": "chat",
+      "session_id": "7cd4b1c6-6ea6-4ba6-b30f-1b808f0f3f4f",
+      "summary": "用户问候，助手回应并询问如何提供帮助。",
+      "key_points": [
+        "用户打招呼",
+        "助手主动提供帮助",
+        "询问具体需求"
+      ],
+      "concepts": [
+        "用户互动",
+        "助手支持",
+        "沟通"
+      ],
+      "entity_ids": [
+        "用户互动",
+        "助手支持",
+        "沟通"
+      ],
+      "relation_triples": [
+        [
+          "用户互动",
+          "用户提问",
+          "助手支持"
+        ],
+        [
+          "助手支持",
+          "提供帮助",
+          "沟通"
+        ],
+        [
+          "用户",
+          "寻求信息",
+          "助手"
+        ],
+        [
+          "助手支持",
+          "提升体验",
+          "用户满意度"
+        ],
+        [
+          "沟通",
+          "促进反馈",
+          "用户反馈"
+        ],
+        [
+          "用户互动",
+          "用户提问",
+          "助手支持"
+        ],
+        [
+          "助手支持",
+          "提供帮助",
+          "沟通"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(3): 用户互动, 助手支持, 沟通 | Relations: 用户提问(2), 提供帮助(2), 寻求信息(1), 提升体验(1), 促进反馈(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-38943b8d8921b1d9",
+      "timestamp": 1772585188.4281735,
+      "source_type": "chat",
+      "session_id": "7cd4b1c6-6ea6-4ba6-b30f-1b808f0f3f4f",
+      "summary": "The assistant is unable to provide an answer due to insufficient information from the user.",
+      "key_points": [
+        "User's question is unclear or not specified (00).",
+        "Assistant's response highlights a lack of information."
+      ],
+      "concepts": [
+        "Information sufficiency",
+        "Clarification in communication"
+      ],
+      "entity_ids": [
+        "Insufficient Information"
+      ],
+      "relation_triples": [
+        [
+          "User query",
+          "Inability to provide information",
+          "Assistant response"
+        ],
+        [
+          "User needs",
+          "Dependence on information clarity",
+          "Assistant's capabilities"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(1): Insufficient Information | Relations: Inability to provide information(1), Dependence on information clarity(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-6f84c9d21082b0d6",
+      "timestamp": 1772600411.963846,
+      "source_type": "chat",
+      "session_id": "9765f180-5307-45c7-b5a6-cb8d61ccd384",
+      "summary": "The user greeted the assistant in Chinese, and the assistant responded in kind, offering assistance with various inquiries.",
+      "key_points": [
+        "User initiated interaction with a greeting.",
+        "Assistant responded warmly and offered help on various topics."
+      ],
+      "concepts": [
+        "Greeting and social interaction",
+        "Offer of assistance",
+        "Multilingual communication"
+      ],
+      "entity_ids": [
+        "Greeting",
+        "Offer of Assistance"
+      ],
+      "relation_triples": [
+        [
+          "你好",
+          "greeting_with_offer_of_assistance",
+          "有什么我可以帮助你的吗？"
+        ],
+        [
+          "用户问候语",
+          "情感交流",
+          "助手的响应"
+        ],
+        [
+          "多语言沟通",
+          "文化交换",
+          "用户与助手的互动"
+        ],
+        [
+          "助手的帮助意愿",
+          "服务导向",
+          "用户的需求"
+        ],
+        [
+          "你好",
+          "greeting_with_offer_of_assistance",
+          "有什么我可以帮助你的吗？"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(2): Greeting, Offer of Assistance | Relations: greeting_with_offer_of_assistance(2), 情感交流(1), 文化交换(1), 服务导向(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-06fe28cb8b4818c9",
+      "timestamp": 1772600460.9138937,
+      "source_type": "chat",
+      "session_id": "9765f180-5307-45c7-b5a6-cb8d61ccd384",
+      "summary": "The user inquired about concepts related to computer vision, and the assistant provided a variety of applications and techniques within the field, particularly focusing on deep learning, RGB-D input, and object detection.",
+      "key_points": [
+        "Deep learning techniques like Focal Loss and CNN improve object detection in complex backgrounds.",
+        "RGB-D input integrates color and depth information for better analysis of objects.",
+        "YOLO is a real-time object detection system that enhances speed and accuracy.",
+        "Machine vision in industrial settings uses cameras and algorithms for measurement and inspection.",
+        "Geometric estimation frameworks leverage RGB-D technology to enhance measurement accuracy."
+      ],
+      "concepts": [
+        "Deep Learning",
+        "Object Detection",
+        "YOLO",
+        "RGB-D Input",
+        "Machine Vision",
+        "Geometric Estimation"
+      ],
+      "entity_ids": [
+        "深度学习检测",
+        "RGB-D输入",
+        "YOLO",
+        "机器视觉测量",
+        "几何估计框架"
+      ],
+      "relation_triples": [
+        [
+          "深度学习检测",
+          "使用",
+          "YOLO"
+        ],
+        [
+          "RGB-D输入",
+          "应用于",
+          "机器视觉测量"
+        ],
+        [
+          "几何估计框架",
+          "依赖于",
+          "RGB-D输入"
+        ],
+        [
+          "机器视觉测量",
+          "结合",
+          "深度学习检测"
+        ],
+        [
+          "深度学习检测",
+          "支持",
+          "RGB-D输入"
+        ],
+        [
+          "YOLO",
+          "技术",
+          "目标检测"
+        ],
+        [
+          "机器视觉测量",
+          "增强",
+          "几何估计框架"
+        ],
+        [
+          "RGB-D输入",
+          "提供数据",
+          "几何估计框架"
+        ],
+        [
+          "深度学习检测",
+          "使用",
+          "YOLO"
+        ],
+        [
+          "RGB-D输入",
+          "应用于",
+          "机器视觉测量"
+        ],
+        [
+          "几何估计框架",
+          "依赖于",
+          "RGB-D输入"
+        ],
+        [
+          "机器视觉测量",
+          "结合",
+          "深度学习检测"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(5): 深度学习检测, RGB-D输入, YOLO, 机器视觉测量, 几何估计框架 | Relations: 使用(2), 应用于(2), 依赖于(2), 结合(2), 支持(1), 技术(1), 增强(1), 提供数据(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-ec2efa79bd0b8c13",
+      "timestamp": 1772639849.8580253,
+      "source_type": "chat",
+      "session_id": "901d56cd-e286-447f-9597-b2d5e7190fbf",
+      "summary": "The user inquired about the requirements for a rules-based robot, but the assistant needs more context to provide a definitive answer.",
+      "key_points": [
+        "User is asking about the requirements of a rules-based robot.",
+        "Assistant lacks sufficient information to provide a specific answer.",
+        "More detailed background or context is necessary for further assistance."
+      ],
+      "concepts": [
+        "Rules-based robots",
+        "Requirements of robotics",
+        "Information context and clarity in communication"
+      ],
+      "entity_ids": [
+        "规则的机器人",
+        "要求"
+      ],
+      "relation_triples": [
+        [
+          "规则的机器人",
+          "hasRequirement",
+          "要求"
+        ],
+        [
+          "规则的机器人",
+          "depends_on",
+          "信息上下文"
+        ],
+        [
+          "要求",
+          "influences",
+          "规则的机器人"
+        ],
+        [
+          "规则的机器人",
+          "interacts_with",
+          "用户"
+        ],
+        [
+          "规则的机器人",
+          "hasRequirement",
+          "要求"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(2): 规则的机器人, 要求 | Relations: hasRequirement(2), depends_on(1), influences(1), interacts_with(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-6a4a3eb0a3b0f0b3",
+      "timestamp": 1772640075.0982559,
+      "source_type": "chat",
+      "session_id": "ae70b01b-d4ae-4d90-bd15-a8c02897be88",
+      "summary": "用户询问关于“高度补偿”概念在论文中的相关章节，助手指出这一概念通常出现在心理学、教育学和生理学的部分，特别是讨论个体差异和适应性发展时。",
+      "key_points": [
+        "高度补偿涉及心理调节和应对策略。",
+        "教育中运用补偿策略帮助学生克服学习障碍。",
+        "强调个体差异和身心健康的重要性。"
+      ],
+      "concepts": [
+        "高度补偿",
+        "个体差异",
+        "适应性发展",
+        "身心健康"
+      ],
+      "entity_ids": [
+        "高度补偿",
+        "个体差异",
+        "适应性发展",
+        "身心健康"
+      ],
+      "relation_triples": [
+        [
+          "高度补偿",
+          "影响",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "相关",
+          "适应性发展"
+        ],
+        [
+          "高度补偿",
+          "关联",
+          "身心健康"
+        ],
+        [
+          "适应性发展",
+          "影响",
+          "个体差异"
+        ],
+        [
+          "身心健康",
+          "关联",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "促进",
+          "适应性发展"
+        ],
+        [
+          "高度补偿",
+          "影响",
+          "个体差异"
+        ],
+        [
+          "高度补偿",
+          "相关",
+          "适应性发展"
+        ],
+        [
+          "高度补偿",
+          "关联",
+          "身心健康"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(4): 高度补偿, 个体差异, 适应性发展, 身心健康 | Relations: 影响(3), 关联(3), 相关(2), 促进(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-106ba87564f31d8d",
+      "timestamp": 1772640451.3506837,
+      "source_type": "chat",
+      "session_id": "9b2e9387-0783-4433-ad28-c80e98095331",
+      "summary": "The user requested an analysis of an uploaded document, while the assistant offered help but needed more information about the document's theme and main points.",
+      "key_points": [
+        "User seeks help analyzing a document.",
+        "Assistant requests more details such as themes and specific content.",
+        "The assistant encourages document upload for accurate analysis."
+      ],
+      "concepts": [
+        "Document analysis",
+        "User assistance",
+        "Information gathering"
+      ],
+      "entity_ids": [
+        "用户问题",
+        "上传的文件",
+        "主题",
+        "主要观点",
+        "背景信息"
+      ],
+      "relation_triples": [
+        [
+          "用户问题",
+          "需要分析",
+          "上传的文件"
+        ],
+        [
+          "上传的文件",
+          "需要提供",
+          "主题"
+        ],
+        [
+          "上传的文件",
+          "需要提供",
+          "主要观点"
+        ],
+        [
+          "上传的文件",
+          "需要提供",
+          "背景信息"
+        ],
+        [
+          "用户问题",
+          "is related to",
+          "主题"
+        ],
+        [
+          "上传的文件",
+          "contains",
+          "主要观点"
+        ],
+        [
+          "主题",
+          "is derived from",
+          "主要观点"
+        ],
+        [
+          "用户问题",
+          "requires",
+          "背景信息"
+        ],
+        [
+          "用户问题",
+          "需要分析",
+          "上传的文件"
+        ],
+        [
+          "上传的文件",
+          "需要提供",
+          "主题"
+        ],
+        [
+          "上传的文件",
+          "需要提供",
+          "主要观点"
+        ],
+        [
+          "上传的文件",
+          "需要提供",
+          "背景信息"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(5): 用户问题, 上传的文件, 主题, 主要观点, 背景信息 | Relations: 需要提供(6), 需要分析(2), is related to(1), contains(1), is derived from(1), requires(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-1ef9848220531139",
+      "timestamp": 1772640691.9740963,
+      "source_type": "chat",
+      "session_id": "c34df125-6f7e-49b5-aebf-fd77b2cdf86f",
+      "summary": "The user asked for an analysis of an uploaded document, while the assistant requested more information about the paper's theme and main points to provide a better analysis.",
+      "key_points": [
+        "User needs analysis of a document.",
+        "Assistant requires more information to assist effectively.",
+        "The assistant is open to receiving the document for detailed analysis."
+      ],
+      "concepts": [
+        "Document analysis",
+        "Information request",
+        "Clarification of content"
+      ],
+      "entity_ids": [
+        "上传的文件",
+        "主题",
+        "主要观点",
+        "具体内容"
+      ],
+      "relation_triples": [
+        [
+          "上传的文件",
+          "询问",
+          "主题"
+        ],
+        [
+          "上传的文件",
+          "询问",
+          "主要观点"
+        ],
+        [
+          "上传的文件",
+          "询问",
+          "具体内容"
+        ],
+        [
+          "用户",
+          "期望分析",
+          "上传的文件"
+        ],
+        [
+          "助手",
+          "信息交流",
+          "用户"
+        ],
+        [
+          "主题",
+          "相关性",
+          "主要观点"
+        ],
+        [
+          "主要观点",
+          "补充关系",
+          "具体内容"
+        ],
+        [
+          "上传的文件",
+          "询问",
+          "主题"
+        ],
+        [
+          "上传的文件",
+          "询问",
+          "主要观点"
+        ],
+        [
+          "上传的文件",
+          "询问",
+          "具体内容"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(4): 上传的文件, 主题, 主要观点, 具体内容 | Relations: 询问(6), 期望分析(1), 信息交流(1), 相关性(1), 补充关系(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-07e039452c4b6f22",
+      "timestamp": 1772641256.8201861,
+      "source_type": "chat",
+      "session_id": "ef1c0bfc-baea-4d59-88ae-263fb81dbd20",
+      "summary": "The term '暴风雨' refers to a weather phenomenon characterized by strong winds, thunder, lightning, and precipitation, which can lead to natural disasters. It also alludes to Shakespeare's play 'The Tempest', which explores themes of power, revenge, and redemption.",
+      "key_points": [
+        "Weather phenomenon with wind, thunder, and rain.",
+        "Can cause natural disasters like floods.",
+        "Title of Shakespeare's play discussing complex themes."
+      ],
+      "concepts": [
+        "Natural disasters",
+        "Weather phenomena",
+        "Literary analysis"
+      ],
+      "entity_ids": [
+        "暴风雨",
+        "莎士比亚的戏剧《暴风雨》"
+      ],
+      "relation_triples": [
+        [
+          "暴风雨",
+          "是标题",
+          "莎士比亚的戏剧《暴风雨》"
+        ],
+        [
+          "暴风雨",
+          "导致",
+          "自然灾害"
+        ],
+        [
+          "莎士比亚的戏剧《暴风雨》",
+          "探讨",
+          "权力与报复"
+        ],
+        [
+          "暴风雨",
+          "灵感来源",
+          "文学作品"
+        ],
+        [
+          "暴风雨",
+          "是标题",
+          "莎士比亚的戏剧《暴风雨》"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(2): 暴风雨, 莎士比亚的戏剧《暴风雨》 | Relations: 是标题(2), 导致(1), 探讨(1), 灵感来源(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-e0fcf966aba67917",
+      "timestamp": 1772643201.847708,
+      "source_type": "chat",
+      "session_id": "1adf9fc8-93fb-4e50-8a1e-d0675de36b0f",
+      "summary": "神经元突触是神经元间信号传递的接点，突触的建立是神经发育中的重要过程，涉及突触的形成、稳定及可塑性，关键于学习和记忆。",
+      "key_points": [
+        "突触是神经元之间信号传递的接点。",
+        "突触的建立是神经发育的重要环节。",
+        "突触形成依赖于化学信号和细胞间相互作用。",
+        "突触可塑性与学习和记忆密切相关。"
+      ],
+      "concepts": [
+        "神经元",
+        "突触",
+        "信号传递",
+        "神经发育",
+        "突触可塑性"
+      ],
+      "entity_ids": [
+        "神经元突触",
+        "信号传递",
+        "神经发育",
+        "突触可塑性"
+      ],
+      "relation_triples": [
+        [
+          "神经元突触",
+          "是",
+          "信号传递"
+        ],
+        [
+          "神经发育",
+          "包括",
+          "突触的建立"
+        ],
+        [
+          "神经元突触",
+          "伴随",
+          "突触可塑性"
+        ],
+        [
+          "突触可塑性",
+          "重要",
+          "学习和记忆"
+        ],
+        [
+          "突触可塑性",
+          "促进",
+          "信号传递"
+        ],
+        [
+          "神经发育",
+          "影响",
+          "学习"
+        ],
+        [
+          "信号传递",
+          "关联",
+          "记忆"
+        ],
+        [
+          "突触的建立",
+          "促进",
+          "突触可塑性"
+        ],
+        [
+          "神经元突触",
+          "是",
+          "信号传递"
+        ],
+        [
+          "神经发育",
+          "包括",
+          "突触的建立"
+        ],
+        [
+          "神经元突触",
+          "伴随",
+          "突触可塑性"
+        ],
+        [
+          "突触可塑性",
+          "重要",
+          "学习和记忆"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(4): 神经元突触, 信号传递, 神经发育, 突触可塑性 | Relations: 是(2), 包括(2), 伴随(2), 重要(2), 促进(2), 影响(1), 关联(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-aa6de07b591d3224",
+      "timestamp": 1772643694.957756,
+      "source_type": "chat",
+      "session_id": "cc0f1023-b246-48ef-b4ce-21ea1b7e27ae",
+      "summary": "高度补偿是指为了调整或抵消高度差异而采取的措施，涉及到工程、建筑和心理学等领域。",
+      "key_points": [
+        "在工程和建筑领域，指地基设计以应对高度差异。",
+        "在心理学中，指个体为克服自卑感而在其他方面表现更优秀。",
+        "提供更多上下文可以获得更详细的解释。"
+      ],
+      "concepts": [
+        "高度补偿",
+        "工程设计",
+        "心理补偿"
+      ],
+      "entity_ids": [
+        "高度补偿"
+      ],
+      "relation_triples": [
+        [
+          "高度补偿",
+          "用于调整或抵消高度差异",
+          "工程和建筑领域"
+        ],
+        [
+          "高度补偿",
+          "克服自卑感",
+          "心理学"
+        ],
+        [
+          "高度补偿",
+          "相关性",
+          "建筑设计"
+        ],
+        [
+          "高度补偿",
+          "可能影响",
+          "自尊心提升"
+        ],
+        [
+          "高度补偿",
+          "相关性",
+          "用户体验"
+        ],
+        [
+          "高度补偿",
+          "可能关联",
+          "工程项目的安全性"
+        ],
+        [
+          "高度补偿",
+          "用于调整或抵消高度差异",
+          "工程和建筑领域"
+        ],
+        [
+          "高度补偿",
+          "克服自卑感",
+          "心理学"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(1): 高度补偿 | Relations: 用于调整或抵消高度差异(2), 克服自卑感(2), 相关性(2), 可能影响(1), 可能关联(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-26d33603f4b91c18",
+      "timestamp": 1772643764.6744869,
+      "source_type": "chat",
+      "session_id": "c9cb36d7-19d7-4ca0-9a76-3d39be95acd7",
+      "summary": "高度补偿是一个在工程与心理学中都有不同含义的概念，涉及克服高度差或自卑感的措施。",
+      "key_points": [
+        "在工程和建筑中，高度补偿处理由于地表高度差带来的设计问题。",
+        "在心理学中，高度补偿表现为通过在其他方面的努力来弥补自卑感。"
+      ],
+      "concepts": [
+        "工程与建筑中的高度补偿",
+        "心理学中的高度补偿"
+      ],
+      "entity_ids": [
+        "高度补偿"
+      ],
+      "relation_triples": [
+        [
+          "高度补偿",
+          "具体应用",
+          "工程领域"
+        ],
+        [
+          "高度补偿",
+          "具体应用",
+          "心理学领域"
+        ],
+        [
+          "高度补偿",
+          "may contribute to",
+          "自信心提高"
+        ],
+        [
+          "高度补偿",
+          "influences",
+          "设计考虑"
+        ],
+        [
+          "心理学中的高度补偿",
+          "can lead to",
+          "行为调整"
+        ],
+        [
+          "工程与建筑中的高度补偿",
+          "is related to",
+          "社会适应"
+        ],
+        [
+          "高度补偿",
+          "具体应用",
+          "工程领域"
+        ],
+        [
+          "高度补偿",
+          "具体应用",
+          "心理学领域"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(1): 高度补偿 | Relations: 具体应用(4), may contribute to(1), influences(1), can lead to(1), is related to(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-907ab9f5539161ef",
+      "timestamp": 1772644888.0961947,
+      "source_type": "chat",
+      "session_id": "c2e22532-6829-4605-a354-766a0419cf3a",
+      "summary": "The assistant cannot directly analyze uploaded files and requests specific information or questions related to the file instead.",
+      "key_points": [
+        "The user asked for file analysis.",
+        "The assistant is unable to process uploaded files directly.",
+        "The assistant encourages the user to provide specific information or questions."
+      ],
+      "concepts": [
+        "File analysis",
+        "User assistance",
+        "Limitations of the assistant"
+      ],
+      "entity_ids": [
+        "文件分析",
+        "用户协助",
+        "助手的局限性"
+      ],
+      "relation_triples": [
+        [
+          "助手的局限性",
+          "无法进行",
+          "文件分析"
+        ],
+        [
+          "用户协助",
+          "需要提供",
+          "文件分析"
+        ],
+        [
+          "用户协助",
+          "依赖",
+          "文件分析"
+        ],
+        [
+          "助手的局限性",
+          "影响",
+          "用户协助"
+        ],
+        [
+          "助手的局限性",
+          "无法进行",
+          "文件分析"
+        ],
+        [
+          "用户协助",
+          "需要提供",
+          "文件分析"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(3): 文件分析, 用户协助, 助手的局限性 | Relations: 无法进行(2), 需要提供(2), 依赖(1), 影响(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-5b9b664ce11e6d36",
+      "timestamp": 1772645872.7659407,
+      "source_type": "chat",
+      "session_id": "b7cc52b1-1b3d-4cb7-b700-22830680d067",
+      "summary": "The assistant cannot directly analyze uploaded files and requests specific information about the file content or questions for analysis.",
+      "key_points": [
+        "The assistant cannot access or analyze uploaded files.",
+        "User is encouraged to provide specific details or questions."
+      ],
+      "concepts": [
+        "File analysis",
+        "User assistance",
+        "Request for information"
+      ],
+      "entity_ids": [
+        "文件分析",
+        "用户协助",
+        "信息请求"
+      ],
+      "relation_triples": [
+        [
+          "用户协助",
+          "请求解析",
+          "信息请求"
+        ],
+        [
+          "用户协助",
+          "supports",
+          "文件分析"
+        ],
+        [
+          "信息请求",
+          "requires",
+          "文件分析"
+        ],
+        [
+          "文件分析",
+          "depends on",
+          "用户协助"
+        ],
+        [
+          "用户协助",
+          "请求解析",
+          "信息请求"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(3): 文件分析, 用户协助, 信息请求 | Relations: 请求解析(2), supports(1), requires(1), depends on(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-3161f11cdb549087",
+      "timestamp": 1772701443.7182493,
+      "source_type": "chat",
+      "session_id": "b7cc52b1-1b3d-4cb7-b700-22830680d067",
+      "summary": "The user requested an analysis of an uploaded file, but the assistant indicated that it cannot process uploaded files directly and requested more specific information or questions about the file.",
+      "key_points": [
+        "User is seeking file analysis.",
+        "Assistant cannot analyze files directly.",
+        "Request for specific details or questions."
+      ],
+      "concepts": [
+        "File analysis",
+        "User assistance",
+        "Limitations of AI capabilities"
+      ],
+      "entity_ids": [
+        "文件分析",
+        "用户协助",
+        "AI能力限制"
+      ],
+      "relation_triples": [
+        [
+          "用户协助",
+          "请求",
+          "文件分析"
+        ],
+        [
+          "AI能力限制",
+          "无法执行",
+          "文件分析"
+        ],
+        [
+          "用户协助",
+          "acknowledges",
+          "AI能力限制"
+        ],
+        [
+          "文件分析",
+          "requires",
+          "用户协助"
+        ],
+        [
+          "用户协助",
+          "请求",
+          "文件分析"
+        ],
+        [
+          "AI能力限制",
+          "无法执行",
+          "文件分析"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(3): 文件分析, 用户协助, AI能力限制 | Relations: 请求(2), 无法执行(2), acknowledges(1), requires(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    },
+    {
+      "episode_id": "ep-3d241d92c4a2b724",
+      "timestamp": 1772701612.403147,
+      "source_type": "chat",
+      "session_id": "b7cc52b1-1b3d-4cb7-b700-22830680d067",
+      "summary": "高度补偿指的是在特定情况下对高度差异进行调整或补偿的机制，广泛应用于工程、建筑和航空等领域。",
+      "key_points": [
+        "应用于工程、建筑与航空等多个领域",
+        "航空中涉及飞行高度的调整",
+        "建筑设计中涉及地基的填充或调整"
+      ],
+      "concepts": [
+        "机制",
+        "补偿",
+        "高度差异"
+      ],
+      "entity_ids": [
+        "高度补偿",
+        "机制",
+        "补偿",
+        "高度差异"
+      ],
+      "relation_triples": [
+        [
+          "高度补偿",
+          "应用于",
+          "机制"
+        ],
+        [
+          "高度补偿",
+          "包含",
+          "补偿"
+        ],
+        [
+          "高度补偿",
+          "针对",
+          "高度差异"
+        ],
+        [
+          "高度补偿",
+          "提高安全性",
+          "工程"
+        ],
+        [
+          "高度补偿",
+          "优化设计",
+          "建筑"
+        ],
+        [
+          "高度补偿",
+          "提升飞行性能",
+          "航空"
+        ],
+        [
+          "高度补偿",
+          "应用于",
+          "机制"
+        ],
+        [
+          "高度补偿",
+          "包含",
+          "补偿"
+        ],
+        [
+          "高度补偿",
+          "针对",
+          "高度差异"
+        ]
+      ],
+      "raw_text_refs": [],
+      "structure_description": "Entities(4): 高度补偿, 机制, 补偿, 高度差异 | Relations: 应用于(2), 包含(2), 针对(2), 提高安全性(1), 优化设计(1), 提升飞行性能(1)",
+      "retrieval_count": 0,
+      "last_retrieved_at": null,
+      "metadata": {}
+    }
+  ]
+}

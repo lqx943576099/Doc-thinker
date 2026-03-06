@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 # 项目根目录（doc-thinker），确保 workdir 不随 CWD 变化
 _DOC_THINKER_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-_DEFAULT_WORKDIR = os.path.join(_DOC_THINKER_ROOT, "rag_storage_api")
+_DEFAULT_WORKDIR = os.path.join(_DOC_THINKER_ROOT, "data", "_system")
 
 
 class AppSettings(BaseModel):
@@ -20,7 +20,7 @@ class AppSettings(BaseModel):
     rerank_base_url: str
     rerank_model: str
 
-    workdir: str = "./rag_storage_api"
+    workdir: str = "./data/_system"
     timeout_seconds: int = 3600
 
 

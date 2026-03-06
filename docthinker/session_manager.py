@@ -27,16 +27,21 @@ class SessionManager:
         re.IGNORECASE,
     )
 
-    def __init__(self, base_storage_path: str = "./rag_storage_api", data_root_path: Optional[str] = None):
-        self.base_storage_path = Path(base_storage_path)
+    def __init__(self, base_storage_path: str = "./data/_system", data_root_path: Optional[str] = None):
+        self.base_storage_path = Path(base_storage_path).expanduser().resolve()
         self.sessions_dir = self.base_storage_path / "sessions"
-        self.kb_storage = KnowledgeBaseStorage(str(self.base_storage_path / "knowledge_base.db"))
-        self.data_root = Path(data_root_path) if data_root_path else self.base_storage_path.parent / "data"
+        if data_root_path:
+            self.data_root = Path(data_root_path).expanduser().resolve()
+        else:
+            self.data_root = self._infer_data_root(self.base_storage_path)
         self._session_rag_cache: Dict[str, DocThinker] = {}
         self._session_rag_lock = RLock()
 
+        self.base_storage_path.mkdir(parents=True, exist_ok=True)
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         self.data_root.mkdir(parents=True, exist_ok=True)
+        self._migrate_from_legacy_rag_storage()
+        self.kb_storage = KnowledgeBaseStorage(str(self.base_storage_path / "knowledge_base.db"))
         self._migrate_sessions_to_numbered_format()
         self._cleanup_legacy_uuid_dirs()
 
@@ -68,6 +73,170 @@ class SessionManager:
         if name.startswith("session_"):
             return name[len("session_") :]
         return name
+
+    @staticmethod
+    def _infer_data_root(base_storage_path: Path) -> Path:
+        if base_storage_path.name == "_system" and base_storage_path.parent.name == "data":
+            return base_storage_path.parent
+        if base_storage_path.name == "rag_storage_api":
+            return base_storage_path.parent / "data"
+        if base_storage_path.parent.name == "data":
+            return base_storage_path.parent
+        return base_storage_path.parent / "data"
+
+    def _find_legacy_rag_root(self) -> Optional[Path]:
+        candidates: List[Path] = []
+        try:
+            project_root = Path(__file__).resolve().parents[1]
+            candidates.append(project_root / "rag_storage_api")
+        except Exception:
+            pass
+        candidates.extend(
+            [
+                Path.cwd() / "rag_storage_api",
+                self.base_storage_path.parent / "rag_storage_api",
+                self.base_storage_path.parent.parent / "rag_storage_api",
+            ]
+        )
+        checked = set()
+        for cand in candidates:
+            try:
+                path = cand.expanduser().resolve()
+            except Exception:
+                continue
+            if path in checked:
+                continue
+            checked.add(path)
+            if path == self.base_storage_path:
+                continue
+            if path.exists() and path.is_dir():
+                return path
+        return None
+
+    def _merge_episode_payload(self, existing: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
+        out = dict(existing) if isinstance(existing, dict) else {}
+        existing_eps = out.get("episodes")
+        if not isinstance(existing_eps, list):
+            existing_eps = []
+        incoming_eps = incoming.get("episodes") if isinstance(incoming, dict) else []
+        if not isinstance(incoming_eps, list):
+            incoming_eps = []
+
+        by_id: Dict[str, Dict[str, Any]] = {}
+        for item in existing_eps + incoming_eps:
+            if not isinstance(item, dict):
+                continue
+            eid = str(item.get("episode_id") or "")
+            if not eid:
+                continue
+            by_id[eid] = item
+        out["episodes"] = list(by_id.values())
+        return out
+
+    def _migrate_legacy_memory_files(self, legacy_root: Path) -> None:
+        legacy_episodes = legacy_root / "episodes.json"
+        if not legacy_episodes.exists():
+            return
+
+        try:
+            payload = json.loads(legacy_episodes.read_text(encoding="utf-8"))
+        except Exception:
+            logger.warning("Failed to parse legacy episodes.json, skipping migration.")
+            return
+
+        episodes = payload.get("episodes") if isinstance(payload, dict) else []
+        if not isinstance(episodes, list) or not episodes:
+            return
+
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        orphans: List[Dict[str, Any]] = []
+        for ep in episodes:
+            if not isinstance(ep, dict):
+                continue
+            sid = str(ep.get("session_id") or "").strip()
+            if self.SESSION_ID_PATTERN.match(sid):
+                grouped.setdefault(sid, []).append(ep)
+            else:
+                orphans.append(ep)
+
+        for sid, values in grouped.items():
+            defaults = self._build_default_paths(sid)
+            talk_dir = Path(defaults["talk_dir"])
+            talk_dir.mkdir(parents=True, exist_ok=True)
+            target = talk_dir / "episodes.json"
+            existing_payload: Dict[str, Any] = {}
+            if target.exists():
+                try:
+                    existing_payload = json.loads(target.read_text(encoding="utf-8"))
+                except Exception:
+                    existing_payload = {}
+            merged = self._merge_episode_payload(existing_payload, {"episodes": values})
+            target.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        memory_graph = legacy_root / "memory_graph.json"
+        episode_vectors = legacy_root / "episode_vectors.json"
+        if len(grouped) == 1:
+            sid = next(iter(grouped.keys()))
+            talk_dir = Path(self._build_default_paths(sid)["talk_dir"])
+            talk_dir.mkdir(parents=True, exist_ok=True)
+            if memory_graph.exists():
+                shutil.copy2(str(memory_graph), str(talk_dir / "memory_graph.json"))
+            if episode_vectors.exists():
+                shutil.copy2(str(episode_vectors), str(talk_dir / "episode_vectors.json"))
+        elif memory_graph.exists() or episode_vectors.exists():
+            legacy_backup = self.base_storage_path / "legacy_memory"
+            legacy_backup.mkdir(parents=True, exist_ok=True)
+            if memory_graph.exists():
+                shutil.copy2(str(memory_graph), str(legacy_backup / "memory_graph.json"))
+            if episode_vectors.exists():
+                shutil.copy2(str(episode_vectors), str(legacy_backup / "episode_vectors.json"))
+
+        if orphans:
+            legacy_backup = self.base_storage_path / "legacy_memory"
+            legacy_backup.mkdir(parents=True, exist_ok=True)
+            orphan_path = legacy_backup / "episodes_orphan.json"
+            orphan_path.write_text(
+                json.dumps({"episodes": orphans}, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+
+    def _migrate_from_legacy_rag_storage(self) -> None:
+        legacy_root = self._find_legacy_rag_root()
+        if not legacy_root:
+            return
+
+        target_db = self.base_storage_path / "knowledge_base.db"
+        legacy_db = legacy_root / "knowledge_base.db"
+        if legacy_db.exists() and not target_db.exists():
+            try:
+                shutil.copy2(str(legacy_db), str(target_db))
+            except Exception as e:
+                logger.warning(f"Failed to copy legacy knowledge_base.db: {e}")
+
+        legacy_sessions = legacy_root / "sessions"
+        if legacy_sessions.exists():
+            for session_dir in legacy_sessions.iterdir():
+                if not session_dir.is_dir():
+                    continue
+                sid = session_dir.name
+                target_knowledge = self.data_root / sid / "knowledge"
+                try:
+                    self._merge_or_move_dir(session_dir, target_knowledge)
+                except Exception as e:
+                    logger.warning(f"Failed to migrate legacy session dir {session_dir}: {e}")
+
+        legacy_kbs = legacy_root / "knowledge_bases"
+        if legacy_kbs.exists():
+            backup_kbs = self.base_storage_path / "legacy_knowledge_bases"
+            try:
+                self._merge_or_move_dir(legacy_kbs, backup_kbs)
+            except Exception as e:
+                logger.warning(f"Failed to migrate legacy knowledge_bases: {e}")
+
+        try:
+            self._migrate_legacy_memory_files(legacy_root)
+        except Exception as e:
+            logger.warning(f"Failed to migrate legacy memory files: {e}")
 
     def _merge_or_move_dir(self, source: Path, target: Path) -> None:
         if not source.exists():
@@ -171,6 +340,7 @@ class SessionManager:
                 for src, dst in [
                     (legacy_work, Path(defaults_new["path"])),
                     (Path(defaults_old["path"]), Path(defaults_new["path"])),
+                    (self.sessions_dir / old_sid, Path(defaults_new["path"])),
                     (legacy_data, Path(defaults_new["data_dir"])),
                     (Path(defaults_old["data_dir"]), Path(defaults_new["data_dir"])),
                 ]:
@@ -187,16 +357,6 @@ class SessionManager:
                     (item["new_name"], json.dumps(item["new_meta"], ensure_ascii=False), item["row_id"]),
                 )
             conn.commit()
-
-            # Best-effort cleanup for legacy absolute path root.
-            legacy_root = Path(r"C:\Users\lqx94\Desktop\Agent\doc-thinker")
-            for rel in ("rag_storage_api/sessions", "data"):
-                target = legacy_root / rel
-                try:
-                    if target.exists():
-                        shutil.rmtree(target)
-                except Exception:
-                    pass
         finally:
             conn.close()
 
@@ -251,19 +411,21 @@ class SessionManager:
         content_dir = data_dir / "content"
         talk_dir = data_dir / "talk"
         code_dir = data_dir / "code"
+        knowledge_dir = data_dir / "knowledge"
         talk_file = talk_dir / "talk.json"
-        work_dir = self.sessions_dir / session_id
+        work_dir = knowledge_dir
         return {
             "path": str(work_dir),
             "data_dir": str(data_dir),
             "content_dir": str(content_dir),
             "talk_dir": str(talk_dir),
             "code_dir": str(code_dir),
+            "knowledge_dir": str(knowledge_dir),
             "talk_file": str(talk_file),
         }
 
     def _ensure_session_dirs(self, metadata: Dict[str, Any]) -> None:
-        for key in ["path", "data_dir", "content_dir", "talk_dir", "code_dir"]:
+        for key in ["path", "data_dir", "content_dir", "talk_dir", "code_dir", "knowledge_dir"]:
             p = metadata.get(key)
             if p:
                 Path(p).mkdir(parents=True, exist_ok=True)
@@ -347,6 +509,15 @@ class SessionManager:
         code_dir.mkdir(parents=True, exist_ok=True)
         return code_dir
 
+    def get_session_talk_dir(self, session_id: str) -> Path:
+        session = self.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+        metadata = session.get("metadata") or {}
+        talk_dir = Path(metadata.get("talk_dir") or self._build_default_paths(session_id)["talk_dir"])
+        talk_dir.mkdir(parents=True, exist_ok=True)
+        return talk_dir
+
     def allocate_session_file_path(self, session_id: str, filename: str) -> Path:
         content_dir = self.get_session_content_dir(session_id)
         base = Path(filename).name or "upload.bin"
@@ -383,8 +554,10 @@ class SessionManager:
             "title": display_title,
             "created_at": kb.created_at.isoformat(),
             "path": metadata["path"],
+            "talk_dir": metadata["talk_dir"],
             "content_dir": metadata["content_dir"],
             "code_dir": metadata["code_dir"],
+            "knowledge_dir": metadata["knowledge_dir"],
             "talk_file": metadata["talk_file"],
         }
 
@@ -411,7 +584,9 @@ class SessionManager:
                     "created_at": kb.created_at.isoformat(),
                     "file_count": len([e for e in kb.entries.values() if e.entry_type == "document"]),
                     "content_dir": merged.get("content_dir"),
+                    "talk_dir": merged.get("talk_dir"),
                     "code_dir": merged.get("code_dir"),
+                    "knowledge_dir": merged.get("knowledge_dir"),
                     "talk_file": merged.get("talk_file"),
                 }
             )
@@ -441,6 +616,7 @@ class SessionManager:
             "content_dir": merged.get("content_dir"),
             "talk_dir": merged.get("talk_dir"),
             "code_dir": merged.get("code_dir"),
+            "knowledge_dir": merged.get("knowledge_dir"),
             "talk_file": merged.get("talk_file"),
             "metadata": merged,
         }

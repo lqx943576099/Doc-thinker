@@ -4,9 +4,19 @@ from fastapi import APIRouter, HTTPException, Body
 
 from ..schemas import EntityRelationshipRequest, RelationshipRequest
 from ..state import state
+from ..memory import get_session_memory_engine
 
 
 router = APIRouter()
+
+
+def _get_memory_engine_or_raise(session_id: Optional[str]):
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    engine = get_session_memory_engine(session_id)
+    if engine is None:
+        raise HTTPException(status_code=501, detail="Memory engine not initialized")
+    return engine
 
 
 async def _get_session_rag_or_raise(session_id: Optional[str]):
@@ -446,30 +456,29 @@ async def delete_relationship(source: str, target: str, session_id: Optional[str
 
 
 @router.get("/memory/stats")
-async def memory_stats():
+async def memory_stats(session_id: Optional[str] = None):
     """Memory engine status summary."""
-    if not getattr(state, "memory_engine", None) or state.memory_engine is None:
-        return {"enabled": False, "episodes": 0, "edges": 0}
+    engine = _get_memory_engine_or_raise(session_id)
     try:
-        episodes = state.memory_engine.episode_store.all_episodes()
-        edges = state.memory_engine.graph.get_all_edges()
+        episodes = engine.episode_store.all_episodes()
+        edges = engine.graph.get_all_edges()
         return {
             "enabled": True,
+            "session_id": session_id,
             "episodes": len(episodes),
             "edges": len(edges),
         }
     except Exception as e:
-        return {"enabled": True, "error": str(e)}
+        return {"enabled": True, "session_id": session_id, "error": str(e)}
 
 
 @router.get("/memory/graph-data")
-async def memory_graph_data():
+async def memory_graph_data(session_id: Optional[str] = None):
     """Graph payload for memory visualization."""
-    if not getattr(state, "memory_engine", None) or state.memory_engine is None:
-        return {"nodes": [], "edges": [], "metadata": {"source": "memory", "enabled": False}}
+    engine = _get_memory_engine_or_raise(session_id)
     try:
-        graph = state.memory_engine.graph
-        episodes = state.memory_engine.episode_store.all_episodes()
+        graph = engine.graph
+        episodes = engine.episode_store.all_episodes()
         nodes = []
         edges = []
         type_color = {"episode": "#3498db", "entity": "#2ecc71", "chunk": "#e67e22"}
@@ -508,26 +517,30 @@ async def memory_graph_data():
             "metadata": {
                 "source": "memory",
                 "enabled": True,
+                "session_id": session_id,
                 "total_nodes": len(nodes),
                 "total_edges": len(edges),
             },
         }
     except Exception as e:
-        return {"nodes": [], "edges": [], "metadata": {"source": "memory", "enabled": True, "error": str(e)}}
+        return {
+            "nodes": [],
+            "edges": [],
+            "metadata": {"source": "memory", "enabled": True, "session_id": session_id, "error": str(e)},
+        }
 
 
 @router.post("/memory/consolidate")
-async def memory_consolidate(recent_n: int = 50, run_llm: bool = True):
+async def memory_consolidate(session_id: Optional[str] = None, recent_n: int = 50, run_llm: bool = True):
     """Trigger one memory consolidation pass."""
-    if not getattr(state, "memory_engine", None) or state.memory_engine is None:
-        raise HTTPException(status_code=501, detail="Memory engine not initialized")
+    engine = _get_memory_engine_or_raise(session_id)
     try:
-        result = await state.memory_engine.consolidate(
+        result = await engine.consolidate(
             recent_n=recent_n,
             run_llm=run_llm,
         )
         try:
-            dp = state.memory_engine.decay_and_prune(
+            dp = engine.decay_and_prune(
                 decay_factor=0.9,
                 max_age_days=30.0,
                 min_weight=0.05,
@@ -536,28 +549,28 @@ async def memory_consolidate(recent_n: int = 50, run_llm: bool = True):
             result["pruned"] = dp.get("pruned", 0)
         except Exception:
             pass
-        state.memory_engine.save()
-        return {"success": True, **result}
+        engine.save()
+        return {"success": True, "session_id": session_id, **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/memory/decay-prune")
 async def memory_decay_prune(
+    session_id: Optional[str] = None,
     decay_factor: float = 0.9,
     max_age_days: float = 30.0,
     min_weight: float = 0.05,
 ):
     """Run memory edge decay and pruning."""
-    if not getattr(state, "memory_engine", None) or state.memory_engine is None:
-        raise HTTPException(status_code=501, detail="Memory engine not initialized")
+    engine = _get_memory_engine_or_raise(session_id)
     try:
-        result = state.memory_engine.decay_and_prune(
+        result = engine.decay_and_prune(
             decay_factor=decay_factor,
             max_age_days=max_age_days,
             min_weight=min_weight,
         )
-        state.memory_engine.save()
-        return {"success": True, **result}
+        engine.save()
+        return {"success": True, "session_id": session_id, **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

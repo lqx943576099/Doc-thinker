@@ -21,6 +21,7 @@ from docthinker.auto_thinking.vlm_client import VLMClient as AutoThinkingVLMClie
 from docthinker.hypergraph import HyperGraphRAG
 
 from .state import state
+from .memory import save_all_memory_engines
 from .routers import health_router, sessions_router, ingest_router, query_router, graph_router
 
 
@@ -33,8 +34,6 @@ def _cleanup_global_graphcore_artifacts(workdir: str) -> None:
     removed: list[str] = []
     for pattern in ("graph_*.graphml", "vdb_*.json", "kv_store_*.json"):
         for path in root.glob(pattern):
-            if path.name in {"episodes.json", "memory_graph.json", "episode_vectors.json"}:
-                continue
             try:
                 path.unlink()
                 removed.append(path.name)
@@ -156,6 +155,7 @@ async def _initialize_rag() -> DocThinker:
 async def lifespan(app: FastAPI):
     state.settings = load_settings()
     state.api_config = APIConfig()
+    Path(state.settings.workdir).mkdir(parents=True, exist_ok=True)
     state.session_manager = SessionManager(base_storage_path=state.settings.workdir)
     _cleanup_global_graphcore_artifacts(state.settings.workdir)
 
@@ -170,6 +170,7 @@ async def lifespan(app: FastAPI):
     )
     try:
         from neuro_memory import MemoryEngine
+
         _embed = getattr(state.rag_instance.embedding_func, "func", state.rag_instance.embedding_func)
 
         async def _neuro_embed(texts):
@@ -183,17 +184,28 @@ async def lifespan(app: FastAPI):
         def _kg_entity_resolver(entity_id: str) -> bool:
             return entity_id in getattr(state, "kg_entity_ids", set())
 
-        state.memory_engine = MemoryEngine(
-            embedding_func=_neuro_embed,
-            llm_func=state.rag_instance.llm_model_func,
-            working_dir=state.settings.workdir,
-            kg_entity_resolver=_kg_entity_resolver,
-        )
-        state.memory_engine.load()
-        print("INFO: Neuro memory engine (brain-like association) initialized.")
+        def _session_memory_factory(session_id: str):
+            if not state.session_manager:
+                raise ValueError("Session manager not initialized")
+            talk_dir = state.session_manager.get_session_talk_dir(session_id)
+            engine = MemoryEngine(
+                embedding_func=_neuro_embed,
+                llm_func=state.rag_instance.llm_model_func,
+                working_dir=str(talk_dir),
+                kg_entity_resolver=_kg_entity_resolver,
+            )
+            engine.load()
+            return engine
+
+        state.memory_engine_factory = _session_memory_factory
+        state.memory_engines = {}
+        state.memory_engine = None
+        print("INFO: Neuro memory engine initialized in session-scoped mode.")
     except Exception as e:
         print(f"WARNING: Neuro memory engine not initialized: {e}")
         state.memory_engine = None
+        state.memory_engine_factory = None
+        state.memory_engines = {}
 
     state.ingestion_service = IngestionService(
         rag_global=state.rag_instance,
@@ -238,6 +250,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    save_all_memory_engines()
     if state.rag_instance:
         await state.rag_instance.finalize_storages()
 

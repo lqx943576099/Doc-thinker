@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from ..schemas import QueryRequest, MultiDocumentQueryRequest
 from ..state import state
+from ..memory import get_session_memory_engine
 
 
 router = APIRouter()
@@ -361,12 +362,13 @@ async def _ingest_chat_turn(
             "hypotheses": insight.hypotheses,
             "action_items": insight.action_items,
         }
-        if state.memory_engine:
+        memory_engine = get_session_memory_engine(session_id)
+        if memory_engine:
             try:
                 relation_triples = []
                 for r in list(insight.relations or []) + list(insight.inferred_relations or []):
                     relation_triples.append((getattr(r, "source", ""), getattr(r, "relation", "related_to"), getattr(r, "target", "")))
-                await state.memory_engine.add_observation(
+                await memory_engine.add_observation(
                     summary=insight.summary or base_text[:500],
                     key_points=list(insight.key_points or []),
                     concepts=list(insight.concepts or []),
@@ -377,6 +379,7 @@ async def _ingest_chat_turn(
                     existing_insight=insight,
                     timestamp=timestamp,
                 )
+                memory_engine.save()
             except Exception:
                 pass
     if session_id:
@@ -438,16 +441,12 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
             print(f"DEBUG: Using session-only thinking mode for query: {request.question}")
             context_prefix = ""
             analogies: List[Tuple[Any, float, Optional[str]]] = []
-            if state.memory_engine:
+            memory_engine = get_session_memory_engine(request.session_id)
+            if memory_engine:
                 try:
-                    analogies = await state.memory_engine.retrieve_analogies(
+                    analogies = await memory_engine.retrieve_analogies(
                         request.question, top_k=5, then_spread=True, spread_top_k=3
                     )
-                    analogies = [
-                        item
-                        for item in analogies
-                        if getattr(item[0], "session_id", None) == request.session_id
-                    ]
                     if analogies:
                         lines = ["[Session Memory] 与当前问题相关的历史片段:"]
                         for ep, score, hint in analogies[:5]:
@@ -464,7 +463,8 @@ async def query(request: QueryRequest, background_tasks: BackgroundTasks):
                         ent_ids = [e for e in dict.fromkeys(ent_ids) if e and e in kg_ids]
                         if ep_ids or ent_ids:
                             try:
-                                state.memory_engine.record_co_activation(ep_ids, ent_ids)
+                                memory_engine.record_co_activation(ep_ids, ent_ids)
+                                memory_engine.save()
                             except Exception:
                                 pass
                 except Exception:

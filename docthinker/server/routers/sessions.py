@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from ..state import state
 from ..schemas import CreateSessionRequest
+from ..memory import remove_session_memory_engine
 
 
 router = APIRouter()
@@ -53,6 +54,7 @@ async def delete_session(session_id: str):
     if not state.session_manager:
         raise HTTPException(status_code=500, detail="Session manager not initialized")
     if state.session_manager.delete_session(session_id):
+        remove_session_memory_engine(session_id, save_before_remove=False)
         return {"status": "success", "message": "Session deleted"}
     raise HTTPException(status_code=404, detail="Session not found")
 
