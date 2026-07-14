@@ -217,26 +217,25 @@ async def build_evidence_package(
                         (start, end, quote, context, rank + clue_bonus, chunk_id)
                     )
         direct_candidates.sort(key=lambda row: (-row[4], row[5], row[0], row[1]))
-        if not direct_candidates:
-            return None, "missing_direct_endpoint_evidence"
-        start, end, quote, context, _rank, chunk_id = direct_candidates[0]
-        digest = hashlib.md5(
-            f"{item.review_id}|direct|{chunk_id}|{start}|{end}".encode("utf-8")
-        ).hexdigest()[:16]
-        direct.append(
-            EvidenceRef(
-                evidence_id=f"ev-{digest}",
-                hop_index=-1,
-                edge_id=f"fuzzy-{item.review_id}",
-                source=item.source,
-                target=item.target,
-                chunk_id=chunk_id,
-                quote=quote,
-                start=start,
-                end=end,
-                context=context,
+        if direct_candidates:
+            start, end, quote, context, _rank, chunk_id = direct_candidates[0]
+            digest = hashlib.md5(
+                f"{item.review_id}|direct|{chunk_id}|{start}|{end}".encode("utf-8")
+            ).hexdigest()[:16]
+            direct.append(
+                EvidenceRef(
+                    evidence_id=f"ev-{digest}",
+                    hop_index=-1,
+                    edge_id=f"fuzzy-{item.review_id}",
+                    source=item.source,
+                    target=item.target,
+                    chunk_id=chunk_id,
+                    quote=quote,
+                    start=start,
+                    end=end,
+                    context=context,
+                )
             )
-        )
 
     return (
         EvidencePackage(

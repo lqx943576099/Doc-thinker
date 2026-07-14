@@ -41,6 +41,7 @@ def _formal_record(result: GateResult) -> dict[str, Any]:
         "relation": result.relation,
         "relation_family": result.relation_family,
         "direction": result.direction,
+        "support_mode": result.support_mode,
         "description": result.description,
         "path_used": result.path_used,
         "supporting_paths": result.supporting_paths,
@@ -97,6 +98,7 @@ def _graph_edge_payload(
             "relation": result.relation,
             "relation_family": result.relation_family,
             "direction": result.direction,
+            "support_mode": result.support_mode,
             "path_used": _json(result.path_used),
             "supporting_paths": _json(result.supporting_paths),
             "evidence_chain": _json(result.evidence_chain),
@@ -130,7 +132,8 @@ def _vdb_payload(result: GateResult) -> dict[str, Any]:
     )
     content = (
         f"{result.source}\n{result.relation_family}:{result.relation}\n"
-        f"direction:{result.direction}\n{result.target}\n{result.description}\n"
+        f"direction:{result.direction}\nsupport_mode:{result.support_mode}\n"
+        f"{result.target}\n{result.description}\n"
         f"evidence:{evidence_text}\nchunks:{','.join(result.evidence_chunk_ids)}"
     )
     return {
@@ -144,6 +147,7 @@ def _vdb_payload(result: GateResult) -> dict[str, Any]:
         "relation": result.relation,
         "relation_family": result.relation_family,
         "direction": result.direction,
+        "support_mode": result.support_mode,
         "description": result.description,
         "path_used": _json(result.path_used),
         "supporting_paths": _json(result.supporting_paths),

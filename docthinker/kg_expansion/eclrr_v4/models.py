@@ -155,6 +155,7 @@ class Proposal:
     direction: str
     description: str
     evidence_refs: tuple[str, ...]
+    support_mode: str = "multi_chunk_composed"
 
 
 @dataclass(frozen=True)
@@ -185,6 +186,7 @@ class GateResult:
     description: str = ""
     canonical_key: str = ""
     relation_id: str = ""
+    support_mode: str = "multi_chunk_composed"
     evidence_chain: list[dict[str, Any]] = field(default_factory=list)
     evidence_chunk_ids: list[str] = field(default_factory=list)
     path_used: list[str] = field(default_factory=list)

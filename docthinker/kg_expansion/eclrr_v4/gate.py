@@ -9,7 +9,7 @@ from dataclasses import asdict
 from typing import Any
 
 from .graph_view import FactGraphView, canonical_relation_key, split_source_ids
-from .clue_semantics import PERSON_ONLY_RELATIONS, clue_relation_ontology
+from .clue_semantics import PERSON_ONLY_RELATIONS
 from .models import (
     ECLRRConfig,
     EvidencePackage,
@@ -142,13 +142,6 @@ async def deterministic_gate(
         )
     if proposal.direction not in _DIRECTIONS:
         return _noop(item.review_id, item.source, item.target, "invalid_direction")
-    expected_relations = clue_relation_ontology(
-        [evidence.quote for evidence in package.direct_evidence]
-    )
-    if expected_relations is not None and relation not in expected_relations:
-        return _noop(
-            item.review_id, item.source, item.target, "relation_conflicts_with_direct_clue"
-        )
     if relation in PERSON_ONLY_RELATIONS and not (
         _is_person(view.nodes[proposal.source])
         and _is_person(view.nodes[proposal.target])
@@ -189,10 +182,6 @@ async def deterministic_gate(
     if set(primary_by_hop) != set(range(path.hops)):
         return _noop(
             item.review_id, item.source, item.target, "missing_primary_evidence"
-        )
-    if item.fuzzy_edge and not package.direct_evidence:
-        return _noop(
-            item.review_id, item.source, item.target, "missing_direct_endpoint_evidence"
         )
     required_refs = {
         evidence.evidence_id
@@ -238,9 +227,9 @@ async def deterministic_gate(
             return _noop(
                 item.review_id, item.source, item.target, "quote_not_about_hop"
             )
-        evidence_chain.append({"evidence_kind": "path", **asdict(evidence)})
+        evidence_chain.append({"evidence_kind": "backbone_path", **asdict(evidence)})
 
-    if item.fuzzy_edge:
+    if item.fuzzy_edge and package.direct_evidence:
         fuzzy_source_ids = set(split_source_ids(item.fuzzy_edge.get("source_id")))
         endpoint_aliases = (
             _node_aliases(item.source, view.nodes[item.source]),
@@ -271,7 +260,7 @@ async def deterministic_gate(
                     item.review_id, item.source, item.target, "direct_quote_missing_endpoint"
                 )
             evidence_chain.insert(
-                0, {"evidence_kind": "direct_endpoint", **asdict(evidence)}
+                0, {"evidence_kind": "direct_relation", **asdict(evidence)}
             )
 
     canonical_key = canonical_relation_key(
@@ -288,10 +277,19 @@ async def deterministic_gate(
     relation_id = "rel-eclrr-" + hashlib.md5(canonical_key.encode("utf-8")).hexdigest()
     action = "refine" if item.fuzzy_edge else "create"
     chain = " → ".join(path.nodes)
+    support_mode = (
+        proposal.support_mode
+        if proposal.support_mode in {"explicit_direct", "multi_chunk_composed"}
+        else "multi_chunk_composed"
+    )
+    support_label = (
+        "端点直接证据" if package.direct_evidence else "多跳 chunk 组合证据"
+    )
     description = (
-        f"{chain} 的逐步关系由 chunk 证据完整支持；结合端点直接暗示，"
-        f"推断 {proposal.source} → {proposal.target} 为 {relation}。"
-        "该结论属于证据支持的隐藏关系，并非原文明示。"
+        f"{chain} 的主干子路径由原始 fact chunk 证据完整支持；"
+        f"结合{support_label}，提出闭环关系 "
+        f"{proposal.source} → {proposal.target} 为 {relation}。"
+        "该结论属于 ECLRR-v4 证据链推断关系，可能不是原文单句明示。"
     )
     return GateResult(
         action=action,
@@ -305,6 +303,7 @@ async def deterministic_gate(
         description=description,
         canonical_key=canonical_key,
         relation_id=relation_id,
+        support_mode=support_mode,
         evidence_chain=evidence_chain,
         evidence_chunk_ids=chunk_ids,
         path_used=list(path.nodes),

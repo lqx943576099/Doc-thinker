@@ -14,6 +14,8 @@ from .models import (
 )
 from .prompts import RELATION_FAMILIES, fit_judge_prompt, plan_generator_batches
 
+SUPPORT_MODES = {"explicit_direct", "multi_chunk_composed"}
+
 
 def _required_evidence_refs(package: EvidencePackage) -> set[str]:
     return {
@@ -50,6 +52,11 @@ def parse_proposals(raw: Any, allowed_review_ids: set[str]) -> list[Proposal]:
         refs = item.get("evidence_refs")
         if not isinstance(refs, list):
             raise ValueError("invalid_evidence_refs")
+        support_mode = (
+            str(item.get("support_mode") or "multi_chunk_composed").strip().lower()
+        )
+        if support_mode not in SUPPORT_MODES:
+            raise ValueError("invalid_support_mode")
         proposals.append(
             Proposal(
                 review_id=review_id,
@@ -62,6 +69,7 @@ def parse_proposals(raw: Any, allowed_review_ids: set[str]) -> list[Proposal]:
                 evidence_refs=tuple(
                     dict.fromkeys(str(ref).strip() for ref in refs if str(ref).strip())
                 ),
+                support_mode=support_mode,
             )
         )
         seen.add(review_id)
